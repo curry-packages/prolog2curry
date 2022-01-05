@@ -1,0 +1,26 @@
+{
+    "name": "prolog2curry",
+    "version": "3.0.0",
+    "author": "Michael Hanus <mh@informatik.uni-kiel.de>",
+    "synopsis": "A tool to transform Prolog programs to Curry programs",
+    "category": [ "Metaprogramming" ],
+    "dependencies": {
+        "base"          :   ">= 3.0.0, < 4.0.0",
+        "abstract-curry":   ">= 3.0.0, < 4.0.0",
+        "filepath"      :   ">= 3.0.0, < 4.0.0",
+        "process"       :   ">= 3.0.0, < 4.0.0",
+        "prolog"        :   ">= 3.0.0, < 4.0.0",
+        "setfunctions"  :   ">= 3.0.0, < 4.0.0"
+    },
+    "exportedModules": [ "Language.Prolog.Read" ],
+    "license": "BSD-3-Clause",
+    "licenseFile": "LICENSE",
+    "executable": {
+        "name"   : "pl2curry",
+        "main"   : "Main"
+    },
+    "source": {
+        "git": "https://git.ps.informatik.uni-kiel.de/curry-packages/prolog2curry.git",
+        "tag": "$version"
+    }
+}
