@@ -1,3 +1,7 @@
+% to read this file with standard Prolog, uncomment the next two lines:
+:- op(1150,fx,function).
+function(_).
+
 :- function tak/4.
 tak(X,Y,Z,A) :-
 	X =< Y
@@ -14,3 +18,4 @@ goal0(R) :- tak(24,16,8,R).
 goal1(R) :- tak(27,16,8,R).
 goal2(R) :- tak(33,17,8,R).
 
+main(R) :- goal1(R).

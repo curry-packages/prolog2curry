@@ -11,17 +11,17 @@ module Language.Prolog.ToCurry
  where
 
 import Data.Char ( toLower, toUpper )
-import Data.List ( (\\), intersect, isSuffixOf, last, maximum
+import Data.List ( (\\), find, intersect, isSuffixOf, last, maximum
                  , partition, transpose, union )
 import System.IO.Unsafe ( trace )
 
 import AbstractCurry.Build
 import AbstractCurry.Pretty  ( showCProg )
-import AbstractCurry.Select  ( varsOfExp )
 import AbstractCurry.Types
 
 import Language.Prolog.Read  ( readPrologFile )
-import Language.Prolog.Show  ( showPlClause, showPlGoal, showPlProg )
+import Language.Prolog.Show  ( showPlClause, showPlGoal, showPlGoals
+                             , showPlProg )
 import Language.Prolog.Types
 
 -- Some testing:
@@ -65,6 +65,7 @@ data TransState = TransState
   , optHelp       :: Bool     -- if help info should be printed
   , optOutput     :: String   -- name of output file (or "-")
   , optLoad       :: Bool     -- load the generated Curry module
+  , optNoWarn     :: Bool     -- turn off warnings for generated Curry module
   , withFunctions :: Bool     -- use function information (otherwise,
                               -- use conservative transformation)
   , withDemand    :: Bool     -- transform to exploit demand/lazy
@@ -76,6 +77,7 @@ data TransState = TransState
   , useAnalysis   :: Bool     -- derive function information automatically
 
   -- the following components are automatically set by the transformation:
+  , ignoredCls    :: [PlClause]          -- ignored clauses (queries, direct.)
   , prologPreds   :: [(PredSpec,String)] -- predicate spec and output name
   , prologCons    :: [(String,Int)]      -- structure name / arity
   , uniqueArgs    :: [(PredSpec,[Int])]  -- unique argument positions
@@ -85,8 +87,8 @@ data TransState = TransState
 --- Returns an initial transformation state for a given module name.
 initState :: String -> TransState
 initState mname =
-  TransState mname 1 False "" False True True False True True True
-             [] [] [] initResultArgs
+  TransState mname 1 False "" False False True True False True True True
+             [] [] [] [] initResultArgs
  where
   initResultArgs = [(("is",2),[1])]
 
@@ -129,17 +131,19 @@ showPredArity (pn,ar) = pn ++ "/" ++ show ar
 --- and return also the modified translation state.
 prolog2Curry :: TransState -> [PlClause] -> (CurryProg, TransState)
 prolog2Curry ts cls =
-  let (functiondirs, cls1) = extractFunctonDirectives cls
-      predclauses = sortPredicates cls1
+  let (functiondirs, cls1)  = extractFunctonDirectives cls
+      (predclauses,ignored) = sortPredicates cls1
       allconstrsP = unionMap patsrhsconstrs (concatMap snd predclauses) \\
                       stdConstrs
       allconstrs = if useLists ts then allconstrsP \\ [("[]",0), (".",2)]
                                   else allconstrsP
-      ts1 = ts { prologPreds = map (\ ((pn,ar),_) -> ((pn,ar),pn)) predclauses
+      ts1 = ts { ignoredCls  = ignored
+               , prologPreds = map (\ ((pn,ar),_) -> ((pn,ar),pn)) predclauses
                , prologCons  = allconstrs
                , resultArgs  = resultArgs ts ++ functiondirs }
-      ts2 = if useAnalysis ts then analyzeClauses predclauses ts1
-                              else ts1
+      ts2 = if useAnalysis ts && withFunctions ts
+              then analyzeClauses predclauses ts1
+              else ts1
   in (simpleCurryProg (modName ts) ["Prelude"]
         (if null allconstrs then [] else [constrs2type ts allconstrs])
         (map (transPredClauses ts2) predclauses) [],
@@ -162,7 +166,7 @@ analyzeFunctions :: [(PredSpec, [Clause])] -> TransState -> TransState
 analyzeFunctions []                                  ts = ts
 analyzeFunctions ((pnar@(pn,ar),pcls) : predclauses) ts =
   maybe (let fspecs = resultArgs ts
-             ps     = computeResults fspecs pnar pcls
+             ps     = computeResults fspecs pcls
              ts1    = if null ps
                         then ts
                         else ts { resultArgs = fspecs ++ [(pnar,ps)] }
@@ -174,7 +178,7 @@ analyzeFunctions ((pnar@(pn,ar),pcls) : predclauses) ts =
         (const $ analyzeFunctions predclauses ts) -- keep existing func. specs.
         (lookup pnar (resultArgs ts))
  where
-  computeResults funcspecs (pn,ar) cls
+  computeResults funcspecs cls
     | ar == 0
     = []   -- no result position
     | length cls == 1 -- defined by single rule:
@@ -246,7 +250,7 @@ isResultVar fspecs lvar goals = any isResultVarInGoal goals
     PlCond _ tr fl -> isResultVar fspecs lvar tr || isResultVar fspecs lvar fl
     PlLit  pn args -> let rpos = maybe [] id (lookup (pn, length args) fspecs)
                           (res,_) = partitionPredArguments rpos args
-                      in lvar `elem` unionMap termVars res
+                      in lvar `elem` termsVars res
 
 ----------------------------------------------------------------------------
 -- Translates a list of constructors into a data declaration.
@@ -257,7 +261,7 @@ constrs2type ts cs =
   termType = (modName ts, "Term")
 
   c2cdecl (c,i) =
-    CCons (transName ts c i) Public (map (const (baseType termType)) [1 .. i])
+    CCons (transName ts c) Public (map (const (baseType termType)) [1 .. i])
 
 -- Extracts `function` directives from a list of Prolog clauses.
 -- Returns the remaining clauses and the function specifications.
@@ -291,19 +295,18 @@ extractFunctonDirectives cls =
       _ -> error $ "Illegal function directive: " ++ showPlClause cl
 
 -- Sorts a list of Prolog clauses into a list of Prolog clauses
--- for each predicate. Ignores all directives and queries.
-sortPredicates :: [PlClause] -> [(PredSpec, [Clause])]
-sortPredicates []       = []
+-- for each predicate. All directives and queries are ignored and
+-- returned in the second component.
+sortPredicates :: [PlClause] -> ([(PredSpec, [Clause])], [PlClause])
+sortPredicates []       = ([],[])
 sortPredicates (cl:cls) = case cl of
-  PlDirective _ -> trace ("Ignoring directive: " ++ showPlClause cl)
-                         (sortPredicates cls)
-  PlQuery     _ -> trace ("Ignoring query: " ++ showPlClause cl)
-                         (sortPredicates cls)
+  PlDirective _ -> let (pcls,icls) = sortPredicates cls in (pcls, cl:icls)
+  PlQuery     _ -> let (pcls,icls) = sortPredicates cls in (pcls, cl:icls)
   PlClause pn args goals ->
     let ar = length args
-        (pnclauses,otherclauses) = partition (hasNameArity pn ar) cls
-    in ((pn,ar), (args,goals) : map patsRhs pnclauses) :
-       sortPredicates otherclauses
+        (pnclauses,othercls) = partition (hasNameArity pn ar) cls
+        (pcls,icls)          = sortPredicates othercls
+    in (((pn,ar), (args,goals) : map patsRhs pnclauses) : pcls, icls)
  where
   hasNameArity _ _  (PlDirective _     ) = False
   hasNameArity _ _  (PlQuery     _     ) = False
@@ -320,7 +323,7 @@ sortPredicates (cl:cls) = case cl of
 transPredClauses :: TransState -> (PredSpec, [Clause])
                  -> CFuncDecl
 transPredClauses ts ((pn,ar), clauses) =
-  cfunc (transName ts pn ar) ar Public
+  cfunc (transName ts pn) ar Public
         (emptyClassType unitType) -- dummy type, will be removed
         (map (transClause ts (pn,ar)) clauses)
 
@@ -332,34 +335,161 @@ transClause ts (pn,ar) (args, goals)
 
 -- Translate a Prolog clause into a Curry rule with the functional
 -- transformation, i.e., consider the information about result positions.
+-- A conditional clause `c -> g1 ; g2` is translated into if-then-else.
 trClauseFunctional :: TransState -> PredSpec -> [PlTerm] -> [PlGoal]
                    -> CRule
-trClauseFunctional ts pnar predargs goals =
-  let rpos = resultPos ts pnar
-      (res,args) = partitionPredArguments rpos predargs
-      rhs0      = if null res then PlAtom "True"
-                              else tupleTerm res
-      (guardexps,binds0) = unzip (map (transGoal ts (unionMap termVars args))
-                                      goals)
-      guard0    = if null (concat guardexps)
-                    then PlAtom "True"
-                    else foldr1 (\t1 t2 -> PlStruct "&&" [t1,t2])
-                                (concat guardexps)
-      (bindings, [guard, rhs]) =
-         if withInline ts then substBindings [] (concat binds0) [guard0, rhs0]
-                          else (concat binds0, [guard0, rhs0])
-      extravars = filter (/="_")
-                    (union (unionMap goalVars goals) (unionMap termVars res)
-                       \\ unionMap termVars
-                                   (args ++ concatMap fst (concat binds0)))
-  in guardedRule (map (transPattern ts) args)
-                 [(transTerm ts guard, transTerm ts rhs)]
-       (map (\ (pts,e) -> CLocalPat (tuplePattern (map (transPattern ts) pts))
-                                    (CSimpleRhs (transTerm ts e) []))
-            bindings ++
-        if null extravars
-          then []
-          else [CLocalVars (map (\v -> (1, lowerFirst v)) extravars)])
+trClauseFunctional ts pnar predargs goals = case goals of
+  [PlCond [PlLit cp cts] g1 g2] -> -- handling of if-then-else rules:
+       let (guard1,rhs1,binds1) = transGoals ts argvars g1 inrhs
+           (guard2,rhs2,binds2) = transGoals ts argvars g2 inrhs
+           extravars1 = unionMap termVars [guard1, rhs1] \\
+                          (argvars ++ termsVars (concatMap fst binds1))
+           extravars2 = unionMap termVars [guard2, rhs2] \\
+                          (argvars ++ termsVars (concatMap fst binds2))
+       in simpleRule patterns
+                     (cITE (transTerm ts (PlStruct (checkCond goals cp) cts))
+                           (letExpr (bindsvars2local binds1 extravars1)
+                                    (condExp guard1 rhs1))
+                           (letExpr (bindsvars2local binds2 extravars2)
+                                    (condExp guard2 rhs2)))
+  _ -> let (guard,rhs,binds) = transGoals ts argvars goals inrhs
+           extravars = unionMap termVars [guard, rhs] \\
+                         (argvars ++ termsVars (concatMap fst binds))
+       in guardedRule patterns
+                      [(transTerm ts guard, transTerm ts rhs)]
+                      (bindsvars2local binds  extravars)
+ where
+  bind2local (pts,e) = CLocalPat (tuplePattern (map (transPattern ts) pts))
+                                 (CSimpleRhs (transTerm ts e) [])
+
+  -- translate bindings and free variable into local declarations
+  bindsvars2local binds freevars =
+    let fvars = filter (/="_") freevars
+    in  map bind2local binds ++
+        if null fvars then []
+                      else [CLocalVars (map (\v -> (1, lowerFirst v)) fvars)]
+
+  -- generate conditional expression of the form `c &> e`
+  condExp c e = if c == plTrue
+                  then transTerm ts e
+                  else applyF (pre "&>") (map (transTerm ts) [c,e])
+
+  (res,args) = partitionPredArguments (resultPos ts pnar) predargs
+  inrhs      = if null res then plTrue else tupleTerm res
+  argvars    = termsVars args
+  patterns   = map (transPattern ts) args
+
+-- Translates a Prolog clause into a Curry rule with the convervative
+-- transformation scheme, i.e., translates a Prolog predicate into a
+-- Curry predicate.
+-- A conditional clause `c -> g1 ; g2` is translated into if-then-else.
+trClauseConservative :: TransState -> [PlTerm] -> [PlGoal] -> CRule
+trClauseConservative ts args goals = case goals of
+  [PlCond [PlLit cp cts] g1 g2] ->
+       let (guard1,_,_) = transGoals ts [] g1 plTrue
+           (guard2,_,_) = transGoals ts [] g2 plTrue
+       in guardedRule patterns
+                      [(constF (pre "True"),
+                        cITE (transTerm ts (PlStruct (checkCond goals cp) cts))
+                             (transTerm ts guard1)
+                             (transTerm ts guard2))]
+                     localvars
+  _ -> let (guard,rhs,_) = transGoals ts [] goals plTrue
+       in guardedRule patterns [(transTerm ts guard, transTerm ts rhs)]
+                      localvars
+ where
+  patterns  = map (transPattern ts) args
+           
+  extravars = filter (/="_") (unionMap goalVars goals \\ termsVars args)
+  localvars = if null extravars
+                then []
+                else [CLocalVars (map (\v -> (1, lowerFirst v)) extravars)]
+
+-- Checks a condition predicate. If it not a simple one, raise an error.
+checkCond :: [PlGoal] -> String -> String
+checkCond goals cp =
+  if cp `elem` simpleCmpPreds
+    then cp
+    else error $ "Cannot translate conditional with complex condition: " ++
+                 showPlGoals goals
+
+
+-- Translates a Prolog term into a Curry pattern.
+transPattern :: TransState -> PlTerm -> CPattern
+transPattern ts pterm = case pterm of
+  PlVar v       -> cpvar (lowerFirst v)
+  PlInt i       -> pInt i
+  PlFloat i     -> pFloat i
+  PlAtom a      -> CPComb (transName ts a) []
+  PlStruct s ps -> CPComb (transName ts s) (map (transPattern ts) ps)
+
+-- Translates a list of Prolog goals and a term representing the rhs term
+-- into a term representing the goal as a Boolean condition,
+-- a term representing the (possibly transformed rhs),
+-- and local bindings in case of the demand transformation.
+-- The second argument contains the lhs variables
+-- in order to avoid creating new bindings for them.
+transGoals :: TransState -> [String] -> [PlGoal] -> PlTerm
+           -> (PlTerm, PlTerm,[([PlTerm], PlTerm)])
+transGoals ts lvars goals rhs =
+  let (guardexps,binds)  = unzip (map (transGoal ts lvars) goals)
+      (ubinds,multbinds) = partition (null . tail)
+                                     (groupBindings (concat binds))
+      -- translate multiple bindings for a same variable into unifications:
+      multbindsguards    = map bind2Equ (concat multbinds)
+      guardexp           = if null (concat guardexps ++ multbindsguards)
+                             then plTrue
+                             else foldr1 (\t1 t2 -> PlStruct "&&" [t1,t2])
+                                         (concat guardexps ++ multbindsguards)
+  in if withInline ts
+       then let (sbinds, [sguardexp, srhs]) =
+                   substBindings [] (concat ubinds) [guardexp, rhs]
+            in (sguardexp, srhs, sbinds)
+       else (guardexp, rhs, concat ubinds)
+ where
+  bind2Equ (res, call) = PlStruct "=:=" [tupleTerm res, call]
+
+  -- transform bindings into groups 
+  groupBindings [] = []
+  groupBindings ((l,r):bs) =
+    let (nols,ls) = partition (\b -> null (intersect (termsVars (fst b))
+                                                     (termsVars l)))
+                              bs
+    in ((l,r):ls) : groupBindings nols
+
+-- Translates a Prolog goal into a term (representing the goal
+-- as a Boolean condition) with local bindings in case of the demand
+-- transformation. The second argument contains the lhs variables
+-- in order to avoid creating new bindings for them.
+transGoal :: TransState -> [String] -> PlGoal
+          -> ([PlTerm], [([PlTerm], PlTerm)])
+transGoal _ _ goal@(PlNeg _) =
+  error $ "Cannot translate negation: " ++ showPlGoal goal
+transGoal _ _ goal@(PlCond _ _ _) =
+  error $ "Cannot translate non-top-level conditional: " ++ showPlGoal goal
+transGoal ts lvars (PlLit pn pargs)
+  | withFunctions ts && withDemand ts && isUnif && isPlVar (head pargs) &&
+    null (intersect lvars (termVars (head pargs)))
+  -- handle X=t literals as binding X/t:
+  = ([], [([head pargs], pargs!!1)])
+  | withFunctions ts
+  = if null res
+      then ([PlStruct (toUnif pn) args], [])
+      else if withDemand ts &&
+              null (intersect lvars (termsVars res))
+             then ([], [(res, call)])
+             else ([PlStruct "=:=" [tupleTerm res, call]], [])
+  | otherwise
+  = ([PlStruct (toUnif pn) pargs], [])
+ where
+  (res,args) = partitionPredArguments (resultPos ts (pn, length pargs)) pargs
+  call       = PlStruct pn args
+
+  toUnif p = if p == "=" then "=:=" else p
+  isUnif = pn == "=" && length pargs == 2
+
+----------------------------------------------------------------------------
+-- Auxiliaries for the transformation.
 
 -- If a binding of a single variable is used only once in a list
 -- of expressions, replace it in the expression and delete the binding.
@@ -376,56 +506,6 @@ substBindings rembindings ((pts,bterm) : bindings) terms = case pts of
  where
   numOccsOf v es = length (filter (== v) (concatMap termVarOccs es))
 
-
--- Translates a Prolog clause into a Curry rule with the convervative
--- transformation scheme, i.e., translates a Prolog predicate into a
--- Curry predicate.
-trClauseConservative :: TransState -> [PlTerm] -> [PlGoal] -> CRule
-trClauseConservative ts args goals =
-  let extravars = filter (/="_")
-                         (unionMap goalVars goals \\ unionMap termVars args)
-      patterns  = map (transPattern ts) args
-      rhs       = if null goals
-                    then constF (pre "True")
-                    else foldr1 (\t1 t2 -> applyF (pre "&&") [t1,t2])
-                                (map (transTerm ts)
-                                     (concatMap (fst . transGoal ts []) goals))
-  in if null extravars
-       then simpleRule patterns rhs
-       else simpleRuleWithLocals patterns rhs
-              [CLocalVars (map (\v -> (1, lowerFirst v)) extravars)]
-
--- Translates a Prolog term into a Curry pattern.
-transPattern :: TransState -> PlTerm -> CPattern
-transPattern ts pterm = case pterm of
-  PlVar v       -> cpvar (lowerFirst v)
-  PlInt i       -> pInt i
-  PlFloat i     -> pFloat i
-  PlAtom a      -> CPComb (transName ts a 0) []
-  PlStruct s ps -> CPComb (transName ts s (length ps))
-                          (map (transPattern ts) ps)
-
--- Translates a Prolog goal into an expression (representing the goal
--- as a Boolean condition) with local bindings in case of the demand
--- transformation. The second argument contains the lhs variables.
-transGoal :: TransState -> [String] -> PlGoal
-          -> ([PlTerm], [([PlTerm], PlTerm)])
-transGoal ts lvars goal = case goal of
-  PlNeg  _       -> error $ "Cannot translate negation: " ++ showPlGoal goal
-  PlCond _ _ _   -> error $ "Cannot translate conditional: " ++ showPlGoal goal
-  PlLit  pn pargs ->
-    if withFunctions ts
-      then let rpos = resultPos ts (pn, length pargs)
-               (res,args) = partitionPredArguments rpos pargs
-               call = PlStruct pn args
-           in if null res
-                then ([call], [])
-                else if withDemand ts &&
-                        null (intersect lvars (unionMap termVars res))
-                       then ([], [(res, call)])
-                       else ([PlStruct "=" [tupleTerm res, call]],
-                             [])
-      else ([PlStruct pn pargs], [])
 
 -- Partitions a list of arguments of a predicate into the list of
 -- result arguments (positions specified in the first argument)
@@ -450,13 +530,12 @@ transTerm ts pterm = case pterm of
   PlVar v       -> cvar (lowerFirst v)
   PlInt i       -> cInt i
   PlFloat i     -> cFloat i
-  PlAtom a      -> constF (transName ts a 0)
+  PlAtom a      -> constF (transName ts a)
   PlStruct s ps -> if s == "is"
                      then case length ps of -- remove "is" calls
                             1 -> transTerm ts (head ps)
-                            _ -> transTerm ts (PlStruct "=" ps)
-                     else applyF (transName ts s (length ps))
-                                 (map (transTerm ts) ps)
+                            _ -> transTerm ts (PlStruct "=:=" ps)
+                     else applyF (transName ts s) (map (transTerm ts) ps)
 
 -- Substitutes all occurrences of a variable in a Prolog term.
 substTerm :: String -> PlTerm -> PlTerm -> PlTerm
@@ -468,6 +547,9 @@ substTerm sv sterm pterm = case pterm of
 ----------------------------------------------------------------------------
 -- Auxiliaries:
 
+plTrue :: PlTerm
+plTrue = PlAtom "True"
+
 -- Is a Prolog term a variable?
 isPlVar :: PlTerm -> Bool
 isPlVar pterm = case pterm of PlVar _ -> True
@@ -476,7 +558,7 @@ isPlVar pterm = case pterm of PlVar _ -> True
 -- The set of all variables in a Prolog goal.
 goalVars :: PlGoal -> [String]
 goalVars pgoal = case pgoal of
-  PlLit _ ts         -> unionMap termVars ts
+  PlLit _ ts         -> termsVars ts
   PlNeg goals        -> unionMap goalVars goals
   PlCond gs1 gs2 gs3 -> unionMap (unionMap goalVars) [gs1,gs2,gs3]
 
@@ -484,8 +566,12 @@ goalVars pgoal = case pgoal of
 termVars :: PlTerm -> [String]
 termVars pterm = case pterm of
   PlVar v       -> [v]
-  PlStruct _ ts -> unionMap termVars ts
+  PlStruct _ ts -> termsVars ts
   _             -> []
+
+-- The set of all variables in a list of Prolog terms.
+termsVars :: [PlTerm] -> [String]
+termsVars = unionMap termVars
 
 -- The multi-set of all occurrences of variables in a Prolog term.
 termVarOccs :: PlTerm -> [String]
@@ -509,28 +595,38 @@ termConstrs pterm = case pterm of
   _             -> []
 
 -- Translates a Prolog atom with a given arity into a qualified Curry name.
-transName :: TransState -> String -> Int -> QName
-transName ts s ar
+transName :: TransState -> String -> QName
+transName ts s
   | s == "."  = if useLists ts then pre ":" else (mn, "CONS")
   | s == "[]" = if useLists ts then pre s   else (mn, "NIL")
-  | s == "="  = pre "=:="
+  --| s == "="  = pre "=:="
   | s `elem` ["True", "False", "&&"] = pre s
   | s `elem` map fst stdNames
   = maybe (error "Internal error transName") pre (lookup s stdNames)
   | otherwise
-  --= (mn, if s `elem` map fst (prologPreds ts) then s else upperFirst s)
-  = (mn, maybe (upperFirst s) id (lookup (s,ar) (prologPreds ts)))
+  = (mn, maybe (upperFirst s)
+               snd
+               (find (\ ((p,_),_) -> p==s) (prologPreds ts)))
  where
   mn = modName ts
 
 stdNames :: [(String,String)]
 stdNames =
-  [ ("=", "=:=")
+  [ ("=" , "==")
+  , ("\\=", "/=")
   , ("=<", "<=")
   , (">=", ">=")
-  , ("<",  "<" )
-  , (">",  ">" )
+  , ("<" , "<" )
+  , (">" , ">" )
   ]
+
+-- Simple comparison predicates
+simpleCmpPreds :: [String]
+simpleCmpPreds = ["=","\\=","<",">","=<",">="]
+
+-- if-then-else expression
+cITE :: CExpr -> CExpr -> CExpr -> CExpr
+cITE c t e = applyF (pre "if_then_else") [c,t,e]
 
 ----------------------------------------------------------------------------
 unionMap :: Eq b => (a -> [b]) -> [a] -> [b]

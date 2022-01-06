@@ -20,14 +20,14 @@ import System.Process              ( exitWith, system )
 
 import AbstractCurry.Pretty        ( showCProg )
 import Language.Prolog.Read        ( readPrologFile )
-import Language.Prolog.Show        ( showPlProg )
+import Language.Prolog.Show        ( showPlClause, showPlProg )
 import Language.Prolog.ToCurry
 
 ------------------------------------------------------------------------------
 toolBanner :: String
 toolBanner = unlines [bannerLine, bannerText, bannerLine]
  where
-  bannerText = "Prolog->Curry transformation tool (Version of 05/01/22)"
+  bannerText = "Prolog->Curry transformation tool (Version of 06/01/22)"
   bannerLine = take (length bannerText) (repeat '=')
 
 main :: IO ()
@@ -53,6 +53,9 @@ transformProgram ts pname = do
       outfile  = case optOutput ts of "-" -> ""
                                       ""  -> modName ts1 ++ ".curry"
                                       f   -> f
+  when (optVerb ts > 0 && not (null (ignoredCls ts1))) $ putStrLn $
+    "The following queries/directives are ignored:\n" ++
+    unlines (map showPlClause (ignoredCls ts1))
   when (optVerb ts > 1 && useAnalysis ts) $ putStrLn $
     "Unique and demanded arguments of predicates:\n" ++ showUniqueArgs ts1
   when (optVerb ts > 1) $ putStrLn $
@@ -60,7 +63,8 @@ transformProgram ts pname = do
   when (optVerb ts > 1 || optOutput ts == "-") $ putStrLn $ encloseInLines $
     "Generated Curry module:\n\n" ++ ucprog
   unless (null outfile) $ do
-    writeFile outfile (missSigOpt ++ ucprog)
+    writeFile outfile $
+      (if optNoWarn ts then noWarnings else missSigOpt) ++ ucprog
     putStrLn $ "Generated Curry module written into '" ++ outfile ++ "'"
   when (optLoad ts && null (optOutput ts)) $ do
     let cmd = installDir </> "bin" </> "pakcs --nocypm :load " ++ modName ts1
@@ -73,6 +77,7 @@ transformProgram ts pname = do
   encloseInLines s = unlines [hline, s, hline]
 
   missSigOpt = "{-# OPTIONS_FRONTEND -Wno-missing-signatures #-}\n\n"
+  noWarnings = "{-# OPTIONS_FRONTEND -Wnone #-}\n\n"
 
 ------------------------------------------------------------------------------
 --- Process the actual command line argument and return the options
@@ -111,6 +116,9 @@ options =
   , Option "r" ["run"]
            (NoArg (\opts -> opts { optLoad = True }))
            "load the Curry program after generating it"
+  , Option "w" ["nowarn"]
+           (NoArg (\opts -> opts { optNoWarn = True }))
+           "turn off all warnings for generated Curry program"
   , Option "c" ["conservative"]
            (NoArg (\opts -> opts { withFunctions = False }))
            "conservative transformation into predicates"

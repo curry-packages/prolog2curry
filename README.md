@@ -51,11 +51,11 @@ It is based on the following principle:
   as a function.
 
 A special case of the previous criterion are predicates
-defined by a single rule, e.g., defining constants by
+defined by a single rule, e.g., predicate which define constants, as
 
     two(s(s(o))).
 
-which is translated into
+This will be translated into
 
     two = S (S O)
 
