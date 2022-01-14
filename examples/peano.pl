@@ -1,34 +1,31 @@
-% Natural numbers in Peano represention: o (zero), s (successor)
-% s(s(s(o))) represents "three"
+% Some arithmetic operations on natural numbers in Peano represention
+% (compare Sterlin/Shapiro: The Art of Prolog)
 
-isPeano(o).
-isPeano(s(N)) :- isPeano(N).
+natural_number(o).
+natural_number(s(N)) :- natural_number(N).
 
-% add(X,Y,Z) <=> Z is the sum of X and Y
-add(o,Y,Y).
-add(s(X),Y,s(Z)) :- add(X,Y,Z).
+% plus(X,Y,Z) <=> Z is the sum of X and Y
+plus(o,Y,Y).
+plus(s(X),Y,s(Z)) :- plus(X,Y,Z).
 
-% sub(X,Y,Z) <=> Z is the difference of X and Y (<=> add(Y,Z,X))
-:- function sub/3.
-sub(X,Y,Z) :- add(Y,Z,X).
-
-% mult(X,Y,Z) <=> Z is the product of X and Y
-mult(o,_,o).
-mult(s(X),Y,Z) :- mult(X,Y,XY), add(XY,Y,Z).
+% times(X,Y,Z) <=> Z is the product of X and Y
+times(o,_,o).
+times(s(X),Y,Z) :- times(X,Y,XY), plus(XY,Y,Z).
 
 % less-or-equal relation
 :- function leq/2: []. % in order to keep it as a relation
 leq(o,_).
 leq(s(X),s(Y)) :- leq(X,Y).
 
+% exp(N,X,Y) <=> Y equals X raised to the power N
+exp(o,_,s(o)). % thus, exp(o,o,s(o)) holds rather being undefined
+exp(s(N),X,Y) :- exp(N,X,Z), times(Z,X,Y).
+
+% factorial(N,F) <=> F equals the factorial of N
+factorial(o,s(o)).
+factorial(s(N),F) :- factorial(N,F1), times(s(N),F1,F).
+
 % for testing:
 three(s(s(s(o)))).
 
-% add three numbers:
-add3(X,Y,Z,R) :- add(X,Y,S), add(S,Z,R).
-
-% This query has an infinite search space in Prolog:
-% ?- add3(X,Y,Z,o).
-
-% The equivalent query in the transformed Curry program is finite:
-% > add3 x y z =:= O  where x,y,z free
+fac3(F3) :- three(N3), factorial(N3,F3).

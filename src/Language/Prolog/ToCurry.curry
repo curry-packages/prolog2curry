@@ -410,8 +410,9 @@ checkCond :: [PlGoal] -> String -> String
 checkCond goals cp =
   if cp `elem` simpleCmpPreds
     then cp
-    else error $ "Cannot translate conditional with complex condition: " ++
-                 showPlGoals goals
+    else trace ("WARNING: conditional with complex condition occurred:\n" ++
+                 showPlGoals goals)
+               cp
 
 
 -- Translates a Prolog term into a Curry pattern.
@@ -475,7 +476,7 @@ transGoal ts lvars (PlLit pn pargs)
   | withFunctions ts
   = if null res
       then ([PlStruct (toUnif pn) args], [])
-      else if withDemand ts &&
+      else if withDemand ts && all isPlVar res &&
               null (intersect lvars (termsVars res))
              then ([], [(res, call)])
              else ([PlStruct "=:=" [tupleTerm res, call]], [])
