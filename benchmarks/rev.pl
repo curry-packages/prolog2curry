@@ -21,8 +21,7 @@ rev([X|Xs],R) :- rev(Xs,Zs), app(Zs,[X],R).
 natList(o,[]).
 natList(s(X),[s(X)|Z]) :- natList(X,Z).
 
-isList([]).
-isList([_|Xs]) :- isList(Xs).
+isList([],tru).
+isList([_|Xs],R) :- isList(Xs,R).
 
-main :- nat4096(N), natList(N,L), rev(L,R), isList(R).
-
+main(R) :- nat4096(N), natList(N,Xs), rev(Xs,Ys), isList(Ys,R).

@@ -1,0 +1,121 @@
+SWI=swipl
+SICS=/opt/sicstus/bin/sicstus
+PAKCS=pakcs3
+KICS2=/opt/kics2/kics3/bin/kics2
+CURRY2GO=curry2go
+GHC=ghc
+
+PLNAMES    = rev tak takpeano
+SWIEXEC    = $(foreach prog, $(PLNAMES), $(addsuffix _swi, $(prog)))
+SICSEXEC   = $(foreach prog, $(PLNAMES), $(addsuffix _sics, $(prog)))
+
+CURRYNAMES = Rev Tak Takpeano
+CURRYFILES = $(foreach prog, $(CURRYNAMES), $(addsuffix .curry, $(prog)))
+PAKCSEXEC  = $(foreach prog, $(CURRYNAMES), $(addsuffix _pakcs, $(prog)))
+KICS2EXEC  = $(foreach prog, $(CURRYNAMES), $(addsuffix _kics2, $(prog)))
+C2GEXEC    = $(foreach prog, $(CURRYNAMES), $(addsuffix _c2g,   $(prog)))
+GHCEXEC    = $(foreach prog, $(CURRYNAMES), $(addsuffix _ghc,   $(prog)))
+GHCHI      = $(foreach prog, $(CURRYNAMES), $(addsuffix .hi,    $(prog)))
+GHCO       = $(foreach prog, $(CURRYNAMES), $(addsuffix .o,     $(prog)))
+
+BENCHSWI   = $(foreach prog, $(SWIEXEC),   $(addprefix bench_, $(prog)))
+BENCHSICS  = $(foreach prog, $(SICSEXEC),  $(addprefix bench_, $(prog)))
+BENCHPAKCS = $(foreach prog, $(PAKCSEXEC), $(addprefix bench_, $(prog)))
+BENCHKICS2 = $(foreach prog, $(KICS2EXEC), $(addprefix bench_, $(prog)))
+BENCHC2G   = $(foreach prog, $(C2GEXEC),   $(addprefix bench_, $(prog)))
+BENCHGHC   = $(foreach prog, $(GHCEXEC),   $(addprefix bench_, $(prog)))
+
+all:
+	$(MAKE) $(SWIEXEC)
+	$(MAKE) $(SICSEXEC)
+	$(MAKE) $(PAKCSEXEC)
+	$(MAKE) $(KICS2EXEC)
+	$(MAKE) $(GHCEXEC)
+
+.PHONY: benchswi
+benchswi:
+	$(MAKE) $(SWIEXEC)
+	$(MAKE) $(BENCHSWI)
+
+.PHONY: benchsics
+benchsics:
+	$(MAKE) $(SICSEXEC)
+	$(MAKE) $(BENCHSICS)
+
+.PHONY: benchpakcs
+benchpakcs:
+	$(MAKE) $(PAKCSEXEC)
+	$(MAKE) $(BENCHPAKCS)
+
+.PHONY: benchkics2
+benchkics2:
+	$(MAKE) $(KICS2EXEC)
+	$(MAKE) $(BENCHKICS2)
+
+.PHONY: benchc2g
+benchc2g:
+	$(MAKE) $(C2GEXEC)
+	$(MAKE) $(BENCHC2G)
+
+.PHONY: benchghc
+benchghc:
+	$(MAKE) $(GHCEXEC)
+	$(MAKE) $(BENCHGHC)
+
+bench_%: %
+	@echo "RUNNING BENCHMARK: $*"
+	@time -p ./$*
+	@time -p ./$*
+	@time -p ./$*
+	@time -p ./$*
+
+%_swi: %.pl
+	@echo Generating $@ from $<
+	echo "compile($*), qsave_program('$@',[toplevel((main(R),write(R),nl,halt))])." | $(SWI)
+
+%_sics: %.pl
+	@echo Generating $@ from $<
+	echo "compile($*), save_program('$@',(main(R),write(R),nl,halt))." | $(SICS)
+	mv $@.sav $@
+	chmod 755 $@
+
+%_pakcs: %.curry
+	@echo Generating $@ from $<
+	$(PAKCS) --nocypm :l $* :save :q
+	mv $* $@
+
+%_kics2: %.curry
+	@echo Generating $@ from $<
+	$(KICS2) --nocypm :l $* :save :q
+	mv $* $@
+
+%_c2g: %.curry
+	@echo Generating $@ from $<
+	$(CURRY2GO) --nocypm :l $* :save :q
+	mv $* $@
+
+Rev.curry: rev.pl
+	pl2curry $<
+
+Tak.curry: tak.pl
+	pl2curry $<
+
+Takpeano.curry: takpeano.pl
+	pl2curry $<
+	cat $@ | sed -e 's/leq x y Tru/leq x y == Tru/' > $@.new
+	mv $@.new $@
+
+%.hs: %.curry
+	cat $< | tail -n +4 | sed -e 's/^main =/main = print (/' | sed -e 's/^main =.*/& )/' > $@
+
+%_ghc: %.hs
+	@echo Generating $@ from $<
+	$(GHC) -O2 --make $*
+	mv $* $@
+
+.PHONY: clean
+clean:
+	rm -f $(SWIEXEC) $(SICSEXEC) $(PAKCSEXEC) $(KICS2EXEC) $(C2GEXEC)
+	rm -f $(CURRYFILES) $(GHCEXEC) $(GHCHI) $(GHCO)
+	rm -rf .curry
+
