@@ -1,3 +1,6 @@
+# Makefile for generating and executing benchmarks
+
+# The binaries of the various systems:
 SWI=swipl
 SICS=/opt/sicstus/bin/sicstus
 PAKCS=pakcs3
@@ -32,35 +35,43 @@ all:
 	$(MAKE) $(KICS2EXEC)
 	$(MAKE) $(GHCEXEC)
 
+# Running all Prolog benchmarks with SWI-Prolog:
 .PHONY: benchswi
 benchswi:
 	$(MAKE) $(SWIEXEC)
 	$(MAKE) $(BENCHSWI)
 
+# Running all Prolog benchmarks with SICStus-Prolog:
 .PHONY: benchsics
 benchsics:
 	$(MAKE) $(SICSEXEC)
 	$(MAKE) $(BENCHSICS)
 
+# Running all Curry benchmarks with PAKCS:
 .PHONY: benchpakcs
 benchpakcs:
 	$(MAKE) $(PAKCSEXEC)
 	$(MAKE) $(BENCHPAKCS)
 
+# Running all Curry benchmarks with KICS2:
 .PHONY: benchkics2
 benchkics2:
 	$(MAKE) $(KICS2EXEC)
 	$(MAKE) $(BENCHKICS2)
 
+# Running all Curry benchmarks with Curry2Go:
 .PHONY: benchc2g
 benchc2g:
 	$(MAKE) $(C2GEXEC)
 	$(MAKE) $(BENCHC2G)
 
+# Running all Haskell benchmarks with GHC:
 .PHONY: benchghc
 benchghc:
 	$(MAKE) $(GHCEXEC)
 	$(MAKE) $(BENCHGHC)
+
+######################################################################
 
 bench_%: %
 	@echo "RUNNING BENCHMARK: $*"

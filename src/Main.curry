@@ -27,7 +27,7 @@ import Language.Prolog.ToCurry
 toolBanner :: String
 toolBanner = unlines [bannerLine, bannerText, bannerLine]
  where
-  bannerText = "Prolog->Curry transformation tool (Version of 06/01/22)"
+  bannerText = "Prolog->Curry transformation tool (Version of 17/01/22)"
   bannerLine = take (length bannerText) (repeat '=')
 
 main :: IO ()
@@ -58,6 +58,8 @@ transformProgram ts pname = do
     unlines (map showPlClause (ignoredCls ts1))
   when (optVerb ts > 1 && useAnalysis ts) $ putStrLn $
     "Unique and demanded arguments of predicates:\n" ++ showUniqueArgs ts1
+  when (optVerb ts > 1 && useAnalysis ts) $ putStrLn $
+    "Inductively sequential arguments of predicates:\n" ++ showIndSeqArgs ts1
   when (optVerb ts > 1) $ putStrLn $
     "Function information used in the transformation:\n" ++ showResultArgs ts1
   when (optVerb ts > 1 || optOutput ts == "-") $ putStrLn $ encloseInLines $
