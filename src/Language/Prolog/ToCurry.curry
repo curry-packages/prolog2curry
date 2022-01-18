@@ -1,5 +1,6 @@
 ------------------------------------------------------------------------------
---- This library contains operations to read/parse Prolog programs.
+--- This library contains operations to transform Prolog programs
+--- into Curry programs.
 ---
 --- @author Michael Hanus
 --- @version January 2022

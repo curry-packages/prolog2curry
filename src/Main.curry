@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------------
---- Main module to call the prolog2curry transformation tool.
+--- Main module to invoke the transformation tool.
 ---
 --- @author Michael Hanus
 --- @version January 2022

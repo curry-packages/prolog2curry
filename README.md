@@ -31,14 +31,6 @@ options to influence the kind of transformation, e.g.:
   similarly to demand, but bindings are inlined to obtain
   a more compact source code
 
-- use lists (default, i.e., `--nolists` is not set):
-  Prolog lists are transformed into Curry lists.
-  This should yield the intended code but might produce type errors
-  for strange uses of Prolog lists, e.g., `.(1,.(2,3))`.
-  If Curry lists are not used, Prolog lists are transformed in Curry
-  by using the constructors `NIL` and `CONS`, e.g., the Prolog list
-  `[1,2]` is transformed into `CONS 1 (CONS 2 NIL)`.
-
 Since adding `function` directives to specify result argument positions
 is tedious, the tool also contains an analysis to derive automatic
 `function` directives (if not already explicitly provided and
@@ -46,9 +38,15 @@ if the option `--noanalysis` is not set) for standard functions
 (i.e., where only the last argument is a result position).
 It is based on the following principle:
 
-- If `p` is an n-ary predicate and the rules for `p` are pairwise
-  non-overlapping w.r.t. the first (n-1) arguments, `p` is considered
-  as a function.
+- If `p` is an n-ary predicate and there is a (minimal) set of
+  argument position such that the rules for `p` are inductively
+  sequentially defined on this set of argument positions
+  (in particular, non-overlapping w.r.t. these arguments),
+  `p` is considered as a function (where the last argument
+  is the result argument position, or the maximum of the remaining
+  argument positions if the option `--anyresult` is set).
+  The information about inductively sequential argument set and
+  functions is printed if the verbosity is larger than 1.
 
 A special case of the previous criterion are predicates
 defined by a single rule, e.g., predicate which define constants, as
@@ -73,3 +71,19 @@ in the rule's body.
 Although these heuristics provide expected transformations
 in most case, one can always override them using an explicit
 `function` directive.
+
+
+Technical remarks:
+------------------
+
+- Prolog atoms `true` and `false` are translated into the Curry
+  Boolean constrants `True` and `False`.
+- Prolog lists are transformed into Curry lists (unless the option
+  `--nolists` is set).
+  This should yield the intended code but might produce type errors
+  for strange uses of Prolog lists, e.g., `.(1,.(2,3))`.
+  If Curry lists are not used (by setting the option `--nolists`),
+  Prolog lists are transformed in Curry by using the constructors
+  `NIL` and `CONS`, e.g., the Prolog list
+  `[1,2]` is transformed into `CONS 1 (CONS 2 NIL)`.
+
