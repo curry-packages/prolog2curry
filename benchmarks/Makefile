@@ -113,8 +113,6 @@ Takint.curry: takint.pl
 
 Takpeano.curry: takpeano.pl
 	pl2curry $<
-	cat $@ | sed -e 's/leq x y Tru/leq x y == Tru/' > $@.new
-	mv $@.new $@
 
 %.hs: %.curry
 	cat $< | tail -n +4 | sed -e 's/^main =/main = print (/' | sed -e 's/^main =.*/& )/' > $@

@@ -152,7 +152,8 @@ prolog2Curry ts cls =
   patsrhsconstrs (pats,goals) =
     union (unionMap termConstrs pats) (unionMap goalConstrs goals)
 
-  stdConstrs = map (\o -> (o,2)) ["+","-","*","/"]
+  stdConstrs = map (\o -> (o,2)) ["+","-","*","/"] ++
+               map (\o -> (o,0)) ["true", "false"]
 
 ----------------------------------------------------------------------------
 -- Analyze the predicates defined with the given list of clauses
@@ -403,7 +404,7 @@ trClauseFunctional ts pnar predargs goals = case goals of
            extravars2 = unionMap termVars [guard2, rhs2] \\
                           (argvars ++ termsVars (concatMap fst binds2))
        in simpleRule patterns
-                     (cITE (transTerm ts (PlStruct (checkCond goals cp) cts))
+                     (cITE (transTerm ts (checkCond ts goals cp cts))
                            (letExpr (bindsvars2local binds1 extravars1)
                                     (condExp guard1 rhs1))
                            (letExpr (bindsvars2local binds2 extravars2)
@@ -446,7 +447,7 @@ trClauseConservative ts args goals = case goals of
            (guard2,_,_) = transGoals ts [] g2 plTrue
        in guardedRule patterns
                       [(constF (pre "True"),
-                        cITE (transTerm ts (PlStruct (checkCond goals cp) cts))
+                        cITE (transTerm ts (checkCond ts goals cp cts))
                              (transTerm ts guard1)
                              (transTerm ts guard2))]
                      localvars
@@ -461,15 +462,23 @@ trClauseConservative ts args goals = case goals of
                 then []
                 else [CLocalVars (map (\v -> (1, lowerFirst v)) extravars)]
 
--- Checks a condition predicate. If it not a simple one, raise an error.
-checkCond :: [PlGoal] -> String -> String
-checkCond goals cp =
+-- Checks a condition predicate where its name and arguments are provided.
+-- If it not a simple one, raise a warning.
+-- Returns the term representing the translated predicate.
+checkCond :: TransState -> [PlGoal] -> String -> [PlTerm] -> PlTerm
+checkCond ts goals cp args =
   if cp `elem` simpleCmpPreds
-    then cp
+    then PlStruct cp args
     else trace ("WARNING: conditional with complex condition occurred:\n" ++
-                 showPlGoals goals)
-               cp
-
+                 showPlGoals goals ++ "\nTranslation might be incorrect!")
+               goalterm --(trace (show goalterm) $ PlStruct cp args)
+ where
+  goalcond = fst (transGoal (ts { withDemand = False }) [] (PlLit cp args))
+  goalterm = if length goalcond /= 1
+               then error $ "Internal error in checkCond"
+               else case head goalcond of
+                      PlStruct "=:=" targs -> PlStruct "==" targs
+                      term                 -> term
 
 -- Translates a Prolog term into a Curry pattern.
 transPattern :: TransState -> PlTerm -> CPattern

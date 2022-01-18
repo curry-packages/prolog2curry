@@ -10,13 +10,13 @@ double(X,R) :- add(X,X,R).
 :- function dec/2.
 dec(s(X),X).
 
-leq(o,_,tru).
-leq(s(_),o,fls).
+leq(o,_,true).
+leq(s(_),o,false).
 leq(s(X),s(Y),R) :- leq(X,Y,R).
 
 :- function tak/4.
 tak(X,Y,Z,A) :-
-	leq(X,Y,tru)
+	leq(X,Y,true)
         -> A=Z
          ; dec(X,X1),
            tak(X1,Y,Z,A1),
