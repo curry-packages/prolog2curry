@@ -8,11 +8,11 @@ KICS2=/opt/kics2/kics3/bin/kics2
 CURRY2GO=curry2go
 GHC=ghc
 
-PLNAMES    = rev tak takpeano
+PLNAMES    = rev takint takpeano
 SWIEXEC    = $(foreach prog, $(PLNAMES), $(addsuffix _swi, $(prog)))
 SICSEXEC   = $(foreach prog, $(PLNAMES), $(addsuffix _sics, $(prog)))
 
-CURRYNAMES = Rev Tak Takpeano
+CURRYNAMES = Rev Takint Takpeano
 CURRYFILES = $(foreach prog, $(CURRYNAMES), $(addsuffix .curry, $(prog)))
 PAKCSEXEC  = $(foreach prog, $(CURRYNAMES), $(addsuffix _pakcs, $(prog)))
 KICS2EXEC  = $(foreach prog, $(CURRYNAMES), $(addsuffix _kics2, $(prog)))
@@ -108,7 +108,7 @@ bench_%: %
 Rev.curry: rev.pl
 	pl2curry $<
 
-Tak.curry: tak.pl
+Takint.curry: takint.pl
 	pl2curry $<
 
 Takpeano.curry: takpeano.pl
