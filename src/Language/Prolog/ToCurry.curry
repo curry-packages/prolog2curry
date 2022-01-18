@@ -7,13 +7,13 @@
 
 module Language.Prolog.ToCurry
   ( TransState(..), initState, setModName
-  , showIndSeqArgs, showUniqueArgs, showResultArgs
+  , showIndSeqArgs, showResultArgs
   , prolog2Curry )
  where
 
 import Data.Char ( toLower, toUpper )
 import Data.List ( (\\), find, intersect, isSuffixOf, last, maximum
-                 , minimumBy, nub, partition, transpose, union )
+                 , minimum, nub, partition, transpose, union )
 import System.IO.Unsafe ( trace )
 
 import AbstractCurry.Build
@@ -77,8 +77,7 @@ data TransState = TransState
   , ignoredCls    :: [PlClause]          -- ignored clauses (queries, direct.)
   , prologPreds   :: [(PredSpec,String)] -- predicate spec and output name
   , prologCons    :: [(String,Int)]      -- structure name / arity
-  , uniqueArgs    :: [(PredSpec,[Int])]  -- unique argument positions
-  , indseqArgs    :: [(PredSpec,[Int])]  -- ind. sequential arg. positions
+  , indseqArgs    :: [(PredSpec,[[Int]])]-- min. sets. of ind. seq. arg. posns.
   , resultArgs    :: [(PredSpec,[Int])]  -- result argument positions
   }
 
@@ -86,7 +85,7 @@ data TransState = TransState
 initState :: String -> TransState
 initState mname =
   TransState mname 1 False "" False False True True False True True True
-             [] [] [] [] [] initResultArgs
+             [] [] [] [] initResultArgs
  where
   initResultArgs = [(("is",2),[1])]
 
@@ -101,14 +100,9 @@ updatePredName pnar newpn ts = ts { prologPreds = updName (prologPreds ts) }
   updName ((pa,n) : pas) | pa == pnar = (pa,newpn) : updName pas
                          | otherwise  = (pa,n)     : updName pas
 
--- Looks up the unique argument positions for a predicate
--- in a transformation state.
-uniquePos :: TransState -> PredSpec -> [Int]
-uniquePos ts pnar = maybe [] id (lookup pnar (uniqueArgs ts))
-
 -- Looks up the inductively sequential argument positions for a predicate
 -- in a transformation state.
-indseqPos :: TransState -> PredSpec -> [Int]
+indseqPos :: TransState -> PredSpec -> [[Int]]
 indseqPos ts pnar = maybe [] id (lookup pnar (indseqArgs ts))
 
 -- Looks up result arguments for a predicate in a transformation state.
@@ -122,11 +116,8 @@ showPredInfo showi =
 showPredPositions :: [(PredSpec,[Int])] -> String
 showPredPositions = showPredInfo (unwords . map show)
 
-showUniqueArgs :: TransState -> String
-showUniqueArgs ts = showPredPositions (uniqueArgs ts)
-
 showIndSeqArgs :: TransState -> String
-showIndSeqArgs ts = showPredPositions (indseqArgs ts)
+showIndSeqArgs ts = showPredInfo (unwords . map show) (indseqArgs ts)
 
 showResultArgs :: TransState -> String
 showResultArgs ts = showPredPositions (resultArgs ts)
@@ -167,8 +158,7 @@ prolog2Curry ts cls =
 -- Analyze the predicates defined with the given list of clauses
 -- and store the analysis results in the state.
 analyzeClauses :: [(PredSpec, [Clause])] -> TransState -> TransState
-analyzeClauses cls ts =
-  analyzeFunctions cls (analyzeIndSeqArgs cls (analyzeUniqueArgs cls ts))
+analyzeClauses cls ts = analyzeFunctions cls (analyzeIndSeqArgs cls ts)
 
 -- Derive `function` directives for all predicates defined in the given
 -- list of clauses. Already existing directives are not changed.
@@ -206,7 +196,10 @@ analyzeFunctions ((pnar@(pn,ar),pcls) : predclauses) ts =
     | otherwise
     = []
    where
-    indseqpos = indseqPos ts (pn,ar)
+    allindseqpos = indseqPos ts (pn,ar)
+    resindseqpos = if optAnyResult ts then allindseqpos
+                                      else filter (ar `notElem`) allindseqpos
+    indseqpos = if null resindseqpos then [] else head resindseqpos
 
 -- Analyze the inductively sequential argument positions
 -- (i.e., groups of arguments which are inductively sequential)
@@ -220,37 +213,42 @@ analyzeIndSeqArgs ((pnar,pcls) : predclauses) ts =
                      then ts
                      else ts { indseqArgs = indseqArgs ts ++ [(pnar,ps)] }
          in analyzeIndSeqArgs predclauses ts1)
-        (const $ analyzeIndSeqArgs predclauses ts) -- keep existing uniqueArgs
+        (const $ analyzeIndSeqArgs predclauses ts) -- keep existing i.seq. args
         (lookup pnar (indseqArgs ts))
  where
   computeIndSeqArgs cls = groupOfIndSeqArgs (map (zip [1 ..]) (map fst cls))
 
--- Infer a minimal set of inductively sequential argument positions
+-- Infer a minimal sets of inductively sequential argument positions
 -- for all predicates defined in the given list of clauses and add the
 -- analysis results to the state.
-groupOfIndSeqArgs :: [[(Int,PlTerm)]] -> [Int]
+-- These sets are all minimal w.r.t. its size, i.e., all lists in the
+-- lists of results have the same length.
+groupOfIndSeqArgs :: [[(Int,PlTerm)]] -> [[Int]]
 groupOfIndSeqArgs rows
   | null rows             = [] -- no rows
   | null (head rows)      = [] -- no pattern columns
-  | not (null uniquecols) = [fst (head (head uniquecols))] -- first uniqe col.
+  | not (null uniquecols) = map ((:[]) . fst . head) uniquecols -- uniqe columns
   | null conscols         = [] -- no pattern column with constructors only
   | null iseqconscols     = [] -- no ind. seq. constructor columns
-  | otherwise             = minimumBy (\x y -> compare (length x) (length y))
-                                      iseqconscols
+  | otherwise  
+  = let minlen = minimum (map (length . head) iseqconscols)
+    in concatMap (filter (\xs -> length xs <= minlen)) iseqconscols
  where
   patcols = transpose rows -- the pattern columns
 
   uniquecols = filter (\c -> nonOverlappingConsTerms (map snd c)) patcols
 
+  -- pattern columns where all patterns are non-variables
   conscols = filter (\ (c:_) -> all (not . isPlVar) (map snd c))
                     (splitList patcols)
 
+  -- ind.seq. positions w.r.t. each non-variable pattern column
   iseqconscols = filter (not . null) (map indseqArgsOfCC conscols)
 
   indseqArgsOfCC allcols@(cc : _) =
     if any null iseqrootrows
       then []
-      else nub (fst (head cc) : concat iseqrootrows)
+      else [nub (fst (head cc) : concatMap head iseqrootrows)]
    where
     roots = nub (map rootOf (map snd cc))
 
@@ -273,24 +271,6 @@ splitList = split []
   split _  []     = []
   split ys (x:xs) = (x : reverse ys ++ xs) : split (x:ys) xs
 
-
--- Analyze the unique argument positions (i.e., demanded and pairwise disjoint)
--- for all predicates defined in the given list of clauses and add the
--- analysis results to the state.
-analyzeUniqueArgs :: [(PredSpec, [Clause])] -> TransState -> TransState
-analyzeUniqueArgs []                          ts = ts
-analyzeUniqueArgs ((pnar,pcls) : predclauses) ts =
-  maybe (let ps  = computeUniqueArgs pcls
-             ts1 = if null ps
-                     then ts
-                     else ts { uniqueArgs = uniqueArgs ts ++ [(pnar,ps)] }
-         in analyzeUniqueArgs predclauses ts1)
-        (const $ analyzeUniqueArgs predclauses ts) -- keep existing uniqueArgs
-        (lookup pnar (uniqueArgs ts))
- where
-  computeUniqueArgs cls =
-    map fst (filter (nonOverlappingConsTerms . snd)
-                    (zip [1 ..] (transpose (map fst cls))))
 
 -- Is a list of terms pairwise disjoint and constructor-rooted?
 nonOverlappingConsTerms :: [PlTerm] -> Bool
@@ -632,14 +612,14 @@ isPlVar :: PlTerm -> Bool
 isPlVar pterm = case pterm of PlVar _ -> True
                               _       -> False
 
--- The root string of a Prolog term.
-rootOf :: PlTerm -> String
+-- The name and arity of the root of a Prolog term.
+rootOf :: PlTerm -> (String,Int)
 rootOf pterm = case pterm of
-  PlVar _      -> ""
-  PlInt i      -> show i
-  PlFloat x    -> show x
-  PlAtom a     -> a
-  PlStruct s _ -> s
+  PlVar _         -> ("", 0)
+  PlInt i         -> (show i, 0)
+  PlFloat x       -> (show x, 0)
+  PlAtom a        -> (a, 0)
+  PlStruct s args -> (s, length args)
 
 -- The arguments of a Prolog term.
 argsOf :: PlTerm -> [PlTerm]

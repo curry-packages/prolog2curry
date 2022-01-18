@@ -27,7 +27,7 @@ import Language.Prolog.ToCurry
 toolBanner :: String
 toolBanner = unlines [bannerLine, bannerText, bannerLine]
  where
-  bannerText = "Prolog->Curry transformation tool (Version of 17/01/22)"
+  bannerText = "Prolog->Curry transformation tool (Version of 18/01/22)"
   bannerLine = take (length bannerText) (repeat '=')
 
 main :: IO ()
@@ -56,8 +56,6 @@ transformProgram ts pname = do
   when (optVerb ts > 0 && not (null (ignoredCls ts1))) $ putStrLn $
     "The following queries/directives are ignored:\n" ++
     unlines (map showPlClause (ignoredCls ts1))
-  when (optVerb ts > 1 && useAnalysis ts) $ putStrLn $
-    "Unique and demanded arguments of predicates:\n" ++ showUniqueArgs ts1
   when (optVerb ts > 1 && useAnalysis ts) $ putStrLn $
     "Inductively sequential arguments of predicates:\n" ++ showIndSeqArgs ts1
   when (optVerb ts > 1) $ putStrLn $

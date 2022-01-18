@@ -10,7 +10,6 @@ double(X,R) :- add(X,X,R).
 :- function dec/2.
 dec(s(X),X).
 
-:- function leq/3.
 leq(o,_,tru).
 leq(s(_),o,fls).
 leq(s(X),s(Y),R) :- leq(X,Y,R).
