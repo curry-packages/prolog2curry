@@ -8,15 +8,16 @@ KICS2=/opt/kics2/kics3/bin/kics2
 CURRY2GO=curry2go
 GHC=ghc
 
-PLNAMES    = rev takint takpeano
+PLNAMES    = rev takint takpeano ackermann
 SWIEXEC    = $(foreach prog, $(PLNAMES), $(addsuffix _swi, $(prog)))
 SICSEXEC   = $(foreach prog, $(PLNAMES), $(addsuffix _sics, $(prog)))
 
-CURRYNAMES = Rev Takint Takpeano
+CURRYNAMES = Rev Takint Takpeano Ackermann
 CURRYFILES = $(foreach prog, $(CURRYNAMES), $(addsuffix .curry, $(prog)))
 PAKCSEXEC  = $(foreach prog, $(CURRYNAMES), $(addsuffix _pakcs, $(prog)))
 KICS2EXEC  = $(foreach prog, $(CURRYNAMES), $(addsuffix _kics2, $(prog)))
 C2GEXEC    = $(foreach prog, $(CURRYNAMES), $(addsuffix _c2g,   $(prog)))
+HSFILES    = $(foreach prog, $(CURRYNAMES), $(addsuffix .hs,    $(prog)))
 GHCEXEC    = $(foreach prog, $(CURRYNAMES), $(addsuffix _ghc,   $(prog)))
 GHCHI      = $(foreach prog, $(CURRYNAMES), $(addsuffix .hi,    $(prog)))
 GHCO       = $(foreach prog, $(CURRYNAMES), $(addsuffix .o,     $(prog)))
@@ -114,6 +115,9 @@ Takint.curry: takint.pl
 Takpeano.curry: takpeano.pl
 	pl2curry $<
 
+Ackermann.curry: ackermann.pl
+	pl2curry $<
+
 %.hs: %.curry
 	cat $< | tail -n +4 | sed -e 's/^main =/main = print (/' | sed -e 's/^main =.*/& )/' > $@
 
@@ -125,6 +129,6 @@ Takpeano.curry: takpeano.pl
 .PHONY: clean
 clean:
 	rm -f $(SWIEXEC) $(SICSEXEC) $(PAKCSEXEC) $(KICS2EXEC) $(C2GEXEC)
-	rm -f $(CURRYFILES) $(GHCEXEC) $(GHCHI) $(GHCO)
+	rm -f $(CURRYFILES) $(HSFILES) $(GHCEXEC) $(GHCHI) $(GHCO)
 	rm -rf .curry
 
