@@ -21,6 +21,13 @@ options to influence the kind of transformation, e.g.:
   For instance, if `p/3` is a function and the last argument is the result,
   then a goal `p(X,Y,Z)` is transformed into `z =:= p x y`.
 
+  Note that it is necessary to define `function` as an operator in Prolog
+  in order to read Prolog programs with such directives. This can be done
+  by adding the following directives at the beginning of the Prolog program:
+
+      :- op(1150,fx,function).
+      function(_).
+
 - with demand (default, i.e., `--nodemand` is not set):
   similarly to functions, but function calls are transformed
   into local variable bindings rather than unifications. Hence,
@@ -45,8 +52,9 @@ It is based on the following principle:
   `p` is considered as a function (where the last argument
   is the result argument position, or the maximum of the remaining
   argument positions if the option `--anyresult` is set).
-  The information about inductively sequential argument set and
-  functions is printed if the verbosity is larger than 1.
+
+The information about the inferred sets of inductively sequential argument
+and result arguments of functions is printed if the verbosity is larger than 1.
 
 A special case of the previous criterion are predicates
 defined by a single rule, e.g., predicate which define constants, as
@@ -77,13 +85,26 @@ Technical remarks:
 ------------------
 
 - Prolog atoms `true` and `false` are translated into the Curry
-  Boolean constrants `True` and `False`.
+  Boolean constants `True` and `False`.
+
 - Prolog lists are transformed into Curry lists (unless the option
   `--nolists` is set).
   This should yield the intended code but might produce type errors
   for strange uses of Prolog lists, e.g., `.(1,.(2,3))`.
   If Curry lists are not used (by setting the option `--nolists`),
-  Prolog lists are transformed in Curry by using the constructors
+  Prolog lists are transformed into Curry terms by using the constructors
   `NIL` and `CONS`, e.g., the Prolog list
   `[1,2]` is transformed into `CONS 1 (CONS 2 NIL)`.
 
+- In the default case, only the last argument of a predicate will be
+  considered as a result argument position for inferred functions.
+  Hence, if the last argument is a contained in a minimal set
+  of inductively sequential arguments, it will not be transformed
+  into a function.
+
+  This behavior can be changed by setting the option `--anyresult`.
+  In this case, a maximum argument will be selected.
+  If this is not the last one, the index of the result argument
+  position is added to indicate that the order of arguments
+  has been changed in the transformed function.
+  See `examples/demand.pl` for such examples.
