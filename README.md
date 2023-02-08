@@ -2,8 +2,18 @@ prolog2curry - Transforming Prolog programs to Curry programs
 =============================================================
 
 This package contains an implementation of a tool (`pl2curry`)
-to transform Prolog programs to Curry programs. The tool has various
-options to influence the kind of transformation, e.g.:
+to transform Prolog programs to Curry programs.
+The idea of this tool is to demonstrate the advantages of
+functional logic languages compared to purely logic languages.
+Thus, the tool translates only pure logic programs (without side
+effecting predicates etc).
+The ideas of this tool are described in detail in a
+[paper presented at ICLP 2022 and published in TPLP](http://doi.org/10.1017/S1471068422000187).
+
+Tool options
+------------
+
+The tool has various options to influence the kind of transformation, e.g.:
 
 - `--conservative`: transform each Prolog predicate into a Curry predicate
 

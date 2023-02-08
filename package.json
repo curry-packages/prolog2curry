@@ -20,7 +20,7 @@
         "main"   : "Main"
     },
     "source": {
-        "git": "https://git.ps.informatik.uni-kiel.de/curry-packages/prolog2curry.git",
+        "git": "https://github.com/curry-packages/prolog2curry.git",
         "tag": "$version"
     }
 }
