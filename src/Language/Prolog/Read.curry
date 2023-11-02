@@ -2,7 +2,7 @@
 --- This library contains operations to read/parse Prolog programs.
 ---
 --- @author Michael Hanus
---- @version January 2022
+--- @version November 2023
 ------------------------------------------------------------------------------
 {-# OPTIONS_FRONTEND -Wno-incomplete-patterns -Wno-overlapping #-}
 
@@ -13,7 +13,7 @@ module Language.Prolog.Read
 import Data.Char ( isAlphaNum, isLower, isSpace, isUpper )
 import Data.List ( union, intercalate )
 
-import Control.SetFunctions
+import Control.Search.SetFunctions
 
 import Language.Prolog.Show  ( showPlProg, showPlClause, showPlTerm )
 import Language.Prolog.Types
