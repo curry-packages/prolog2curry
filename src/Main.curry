@@ -27,7 +27,7 @@ import Language.Prolog.ToCurry
 toolBanner :: String
 toolBanner = unlines [bannerLine, bannerText, bannerLine]
  where
-  bannerText = "Prolog->Curry transformation tool (Version of 18/01/22)"
+  bannerText = "Prolog->Curry transformation tool (Version of 26/04/24)"
   bannerLine = take (length bannerText) (repeat '=')
 
 main :: IO ()

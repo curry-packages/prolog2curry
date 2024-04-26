@@ -3,7 +3,7 @@
 --- into Curry programs.
 ---
 --- @author Michael Hanus
---- @version January 2022
+--- @version April 2024
 ------------------------------------------------------------------------------
 
 module Language.Prolog.ToCurry
@@ -25,7 +25,7 @@ import Language.Prolog.Types
 import Language.Prolog.Goodies
 import Language.Prolog.Read    ( readPrologFile )
 import Language.Prolog.Show    ( showPlClause, showPlGoal, showPlGoals
-                               , showPlProg )
+                               , showPlProg, showPlTerm )
 
 
 -- Reads Prolog program from a file (with suffix `.pl`)
@@ -133,12 +133,14 @@ showPredArity (pn,ar) = pn ++ "/" ++ show ar
 --- and return also the modified translation state.
 prolog2Curry :: TransState -> [PlClause] -> (CurryProg, TransState)
 prolog2Curry ts cls =
-  let (functiondirs, cls1)  = extractFunctonDirectives cls
-      (predclauses,ignored) = sortPredicates cls1
+  let (functiondirs, cls1)   = extractFunctonDirectives cls
+      (constypespecs, cls2)  = extractTypeDirectives ts cls1
+      (defconstrs,typespecs) = unzip constypespecs
+      (predclauses,ignored)  = sortPredicates cls2
       allconstrsP = unionMap patsrhsconstrs (concatMap snd predclauses) \\
                       stdConstrs
-      allconstrs = if useLists ts then allconstrsP \\ [("[]",0), (".",2)]
-                                  else allconstrsP
+      allconstrs = (if useLists ts then allconstrsP \\ [("[]",0), (".",2)]
+                                   else allconstrsP) \\ concat defconstrs
       ts1 = ts { ignoredCls  = ignored
                , prologPreds = map (\ ((pn,ar),_) -> ((pn,ar),pn)) predclauses
                , prologCons  = allconstrs
@@ -147,7 +149,8 @@ prolog2Curry ts cls =
               then analyzeClauses predclauses ts1
               else ts1
   in (simpleCurryProg (modName ts) ["Prelude"]
-        (if null allconstrs then [] else [constrs2type ts allconstrs])
+        (typespecs ++
+         if null allconstrs then [] else [constrs2type ts allconstrs])
         (map (transPredClauses ts2) predclauses) [],
       ts2)
  where
@@ -314,8 +317,7 @@ isResultVar fspecs lvar goals = any isResultVarInGoal goals
 ----------------------------------------------------------------------------
 -- Translates a list of constructors into a data declaration.
 constrs2type :: TransState -> [(String,Int)] -> CTypeDecl
-constrs2type ts cs =
-  CType termType Public [] (map c2cdecl cs) (map pre ["Eq", "Show"])
+constrs2type ts cs = CType termType Public [] (map c2cdecl cs) stdDataDeriving
  where
   termType = (modName ts, "Term")
 
@@ -323,7 +325,7 @@ constrs2type ts cs =
     CCons (transName ts c) Public (map (const (baseType termType)) [1 .. i])
 
 -- Extracts `function` directives from a list of Prolog clauses.
--- Returns the remaining clauses and the function specifications.
+-- Returns the function specifications and the remaining clauses.
 extractFunctonDirectives :: [PlClause] -> ([(PredSpec,[Int])], [PlClause])
 extractFunctonDirectives cls =
   let (functiondirs, othercls) = partition isFunctionDirective cls
@@ -352,6 +354,62 @@ extractFunctonDirectives cls =
       PlAtom "[]"                -> []
       PlStruct "." [PlInt p, ts] -> p : getResultPosList ts
       _ -> error $ "Illegal function directive: " ++ showPlClause cl
+
+----------------------------------------------------------------------------
+-- Extracts `type` directives from a list of Prolog clauses.
+-- Returns the type declarations (together with the list of constructors
+-- contained in them) and the remaining clauses.
+extractTypeDirectives :: TransState -> [PlClause]
+                      -> ([([(String,Int)],CTypeDecl)], [PlClause])
+extractTypeDirectives ts cls =
+  let (typedirs, othercls) = partition isTypeDirective cls
+  in (map type2spec typedirs, othercls)
+ where
+  isTypeDirective cl = case cl of
+    PlDirective [PlLit "type" _] -> True
+    _                            -> False
+
+  type2spec cl = case cl of
+    PlDirective [PlLit _ [tspec]] -> getTypeSpec tspec
+    _ -> error $ "Illegal type declaration: " ++ showPlClause cl
+   where
+    getTypeSpec t = case t of
+      PlStruct "=" [lhs,rhs] -> term2TypeDecl lhs (getCons rhs)
+      PlStruct ";" [PlStruct "=" [lhs,rhs], t2] ->
+        term2TypeDecl lhs (getCons (PlStruct ";" [rhs, t2]))
+      _ -> error $ "Illegal type declaration: " ++ showPlTerm t
+
+    getCons t = case t of
+      PlStruct ";" [c,cs] -> term2ConsDecl c : getCons cs
+      _                   -> [term2ConsDecl t]
+
+    term2TypeDecl lhs nameconss = case lhs of
+      PlAtom c      -> term2TypeDecl (PlStruct c []) nameconss
+      PlStruct c vs -> let (names,consdecls) = unzip nameconss
+                       in (names,
+                           CType (transName ts c) Public (map plvar2TypeVar vs)
+                                 consdecls stdDataDeriving)
+      _             -> error lhsError
+     where
+      plvar2TypeVar t = case t of PlVar v -> (0, lowerFirst v)
+                                  _       -> error lhsError 
+
+      lhsError = "Illegal type declaration: " ++ showPlTerm lhs
+
+    term2ConsDecl t = case t of
+      PlAtom c      -> term2ConsDecl (PlStruct c [])
+      PlStruct c xs -> ((c, length xs),
+                        CCons (transName ts c) Public (map term2TypeExp xs))
+      _ -> error $ "Illegal data constructor declaration: " ++ showPlTerm t
+
+    term2TypeExp t = case t of
+      PlVar v        -> CTVar (0, lowerFirst v)
+      PlAtom c       -> baseType (transName ts c)
+      PlStruct c tys -> applyTC (transName ts c) (map term2TypeExp tys)
+      _ -> error $ "Illegal data constructor declaration: " ++ showPlTerm t
+
+stdDataDeriving :: [QName]
+stdDataDeriving = (map pre ["Eq", "Show"])
 
 -- Sorts a list of Prolog clauses into a list of Prolog clauses
 -- for each predicate. All directives and queries are ignored and

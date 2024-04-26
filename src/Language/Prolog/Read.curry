@@ -292,6 +292,7 @@ stdOps =
   , (";",1100,"xfy")
   , ("dynamic",1150,"fx")
   , ("function",1150,"fx")   -- to specify a function (with result positions)
+  , ("type",1150,"fx")       -- to specify data types
   , ("->",1050,"xfy")
   , (",",1000,"xfy")
   , ("\\+",900,"fy")
