@@ -423,7 +423,9 @@ sortPredicates (cl:cls) = case cl of
     let ar = length args
         (pnclauses,othercls) = partition (hasNameArity pn ar) cls
         (pcls,icls)          = sortPredicates othercls
-    in (((pn,ar), (args,goals) : map patsRhs pnclauses) : pcls, icls)
+    in if (pn,ar) `elem` [("function",1), ("type",1)]
+         then (pcls, cl : pnclauses ++ icls) -- ignore function/type clauses
+         else (((pn,ar), (args,goals) : map patsRhs pnclauses) : pcls, icls)
  where
   hasNameArity _ _  (PlDirective _     ) = False
   hasNameArity _ _  (PlQuery     _     ) = False

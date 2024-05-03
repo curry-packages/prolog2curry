@@ -54,7 +54,7 @@ transformProgram ts pname = do
                                       ""  -> modName ts1 ++ ".curry"
                                       f   -> f
   when (optVerb ts > 0 && not (null (ignoredCls ts1))) $ putStrLn $
-    "The following queries/directives are ignored:\n" ++
+    "The following queries/directives/clauses are ignored:\n" ++
     unlines (map showPlClause (ignoredCls ts1))
   when (optVerb ts > 1 && useAnalysis ts) $ putStrLn $
     "Inductively sequential arguments of predicates:\n" ++ showIndSeqArgs ts1
