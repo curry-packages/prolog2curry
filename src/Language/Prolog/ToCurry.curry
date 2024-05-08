@@ -3,7 +3,7 @@
 --- into Curry programs.
 ---
 --- @author Michael Hanus
---- @version April 2024
+--- @version May 2024
 ------------------------------------------------------------------------------
 
 module Language.Prolog.ToCurry
@@ -74,6 +74,9 @@ data TransState = TransState
   , withInline    :: Bool     -- try to inline where/let bindings
   , useLists      :: Bool     -- translate Prolog lists into Curry lists?
   , useAnalysis   :: Bool     -- derive function information automatically
+  , optFailFuncs  :: String   -- file containing list of failing functions
+  , failFuncs     :: [QName]  -- list of failing functions (read from file
+                              -- specified in `optFailFuncs`)
 
   -- the following components are automatically set by the transformation:
   , ignoredCls    :: [PlClause]          -- ignored clauses (queries, direct.)
@@ -86,7 +89,7 @@ data TransState = TransState
 --- Returns an initial transformation state for a given module name.
 initState :: String -> TransState
 initState mname =
-  TransState mname 1 False "" False False True True False True True True
+  TransState mname 1 False "" False False True True False True True True "" []
              [] [] [] [] initResultArgs
  where
   initResultArgs = [(("is",2),[1])]
@@ -251,6 +254,7 @@ groupOfIndSeqArgs rows
   -- ind.seq. positions w.r.t. each non-variable pattern column
   iseqconscols = filter (not . null) (map indseqArgsOfCC conscols)
 
+  indseqArgsOfCC [] = error "Internal error in groupOfIndSeqArgs"
   indseqArgsOfCC allcols@(cc : _) =
     if any null iseqrootrows
       then []
@@ -262,6 +266,7 @@ groupOfIndSeqArgs rows
     withRoot (((i,pat):pats) : rs) s
       | rootOf pat == s = (zip (repeat i) (argsOf pat) ++ pats) : withRoot rs s
       | otherwise       = withRoot rs s
+    withRoot ([] : _) _ = error "No match in withRoot"
 
     -- group rows according to identical root patterns:
     rootRows = filter (\rs -> length rs > 1)
@@ -659,11 +664,25 @@ transTerm ts pterm = case pterm of
   PlInt i       -> cInt i
   PlFloat i     -> cFloat i
   PlAtom a      -> constF (transName ts a)
-  PlStruct s ps -> if s == "is"
-                     then case length ps of -- remove "is" calls
+  PlStruct s ps
+    | s == "is" -> case length ps of -- remove "is" calls
                             1 -> transTerm ts (head ps)
                             _ -> transTerm ts (PlStruct "=:=" ps)
-                     else applyF (transName ts s) (map (transTerm ts) ps)
+    -- fail-sensitive transformation not necessary for conjunction
+    | s == "&&" -> applyF (transName ts s) (map (transTerm ts) ps)
+    | otherwise -> applyFun (transName ts s)
+                            (map (\t -> (transTerm ts t, maybeFail t)) ps)
+ where
+  -- might a term be failing so that it should be strictly evaluated?
+  maybeFail t = not (null (optFailFuncs ts)) &&
+                any (`elem` (failFuncs ts))
+                    (map (transName ts . fst) (termConstrs t))
+
+  applyFun f es = fst $ foldl strictApply (CSymbol f, False) es
+
+  strictApply (e1,mbf1) (e2,mbf2)
+    | mbf2      = (applyF (pre "$!") [e1, e2], True)
+    | otherwise = (CApply e1 e2, mbf1)
 
 -- Substitutes all occurrences of a variable in a Prolog term.
 substTerm :: String -> PlTerm -> PlTerm -> PlTerm

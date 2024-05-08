@@ -2,7 +2,7 @@
 --- Main module to invoke the transformation tool.
 ---
 --- @author Michael Hanus
---- @version January 2022
+--- @version May 2024
 ------------------------------------------------------------------------------
 
 module Main
@@ -15,6 +15,7 @@ import Numeric                     ( readNat )
 import System.Console.GetOpt
 import System.Environment          ( getArgs )
 
+import System.Directory            ( doesFileExist )
 import System.FilePath             ( (</>), dropExtension )
 import System.Process              ( exitWith, system )
 
@@ -27,7 +28,7 @@ import Language.Prolog.ToCurry
 toolBanner :: String
 toolBanner = unlines [bannerLine, bannerText, bannerLine]
  where
-  bannerText = "Prolog->Curry transformation tool (Version of 26/04/24)"
+  bannerText = "Prolog->Curry transformation tool (Version of 08/05/24)"
   bannerLine = take (length bannerText) (repeat '=')
 
 main :: IO ()
@@ -44,22 +45,33 @@ main = do
 transformProgram :: TransState -> String -> IO ()
 transformProgram ts pname = do
   let progname = dropExtension pname
+      fffile   = optFailFuncs ts
+  ts1 <- if null fffile
+           then return ts
+           else do
+             exff <- doesFileExist fffile
+             unless exff $ error $ "File '" ++ fffile ++ "' does not exist"
+             ffs <- fmap (concatMap readQNameLine . lines) (readFile fffile)
+             return (ts { failFuncs = ffs })
   pp <- readPrologFile (progname ++ ".pl")
   when (optVerb ts > 2) $ putStrLn $ encloseInLines $
     "Prolog program '" ++ pname ++ "':\n\n" ++ showPlProg pp
-  let (cprog,ts1) = prolog2Curry (setModName progname ts) pp
+  let (cprog,ts2) = prolog2Curry (setModName progname ts1) pp
       ucprog   = unlines (filter (not . (":: ()" `isSuffixOf`))
                                  (lines (showCProg cprog)))
       outfile  = case optOutput ts of "-" -> ""
-                                      ""  -> modName ts1 ++ ".curry"
+                                      ""  -> modName ts2 ++ ".curry"
                                       f   -> f
-  when (optVerb ts > 0 && not (null (ignoredCls ts1))) $ putStrLn $
+  when (optVerb ts > 0 && not (null (ignoredCls ts2))) $ putStrLn $
     "The following queries/directives/clauses are ignored:\n" ++
-    unlines (map showPlClause (ignoredCls ts1))
-  when (optVerb ts > 1 && useAnalysis ts) $ putStrLn $
-    "Inductively sequential arguments of predicates:\n" ++ showIndSeqArgs ts1
-  when (optVerb ts > 1) $ putStrLn $
-    "Function information used in the transformation:\n" ++ showResultArgs ts1
+    unlines (map showPlClause (ignoredCls ts2))
+  when (optVerb ts > 2 && useAnalysis ts) $ putStrLn $
+    "Inductively sequential arguments of predicates:\n" ++ showIndSeqArgs ts2
+  when (optVerb ts > 2) $ putStrLn $
+    "Function information used in the transformation:\n" ++ showResultArgs ts2
+  when (optVerb ts > 2 && not (null (optFailFuncs ts))) $ putStrLn $
+    "Possibly failing functions:\n" ++
+    unlines (map (\(mn,fn) -> mn ++ "." ++ fn) (failFuncs ts2))
   when (optVerb ts > 1 || optOutput ts == "-") $ putStrLn $ encloseInLines $
     "Generated Curry module:\n\n" ++ ucprog
   unless (null outfile) $ do
@@ -67,7 +79,7 @@ transformProgram ts pname = do
       (if optNoWarn ts then noWarnings else missSigOpt) ++ ucprog
     putStrLn $ "Generated Curry module written into '" ++ outfile ++ "'"
   when (optLoad ts && null (optOutput ts)) $ do
-    let cmd = installDir </> "bin" </> "pakcs --nocypm :load " ++ modName ts1
+    let cmd = installDir </> "bin" </> "pakcs --nocypm :load " ++ modName ts2
     when (optVerb ts > 1) $ putStrLn $ "Executing: " ++ cmd
     ec <- system cmd
     exitWith ec
@@ -78,6 +90,10 @@ transformProgram ts pname = do
 
   missSigOpt = "{-# OPTIONS_FRONTEND -Wno-missing-signatures #-}\n\n"
   noWarnings = "{-# OPTIONS_FRONTEND -Wnone #-}\n\n"
+  
+  -- reads a line containing a module and a function name separated by a space:
+  readQNameLine s = let (mn,fn) = break (==' ') s
+                    in if null fn then [] else [(mn, tail fn)]
 
 ------------------------------------------------------------------------------
 --- Process the actual command line argument and return the options
@@ -137,6 +153,9 @@ options =
   , Option "" ["nolists"]
            (NoArg (\opts -> opts { useLists = False }))
            "do not use Curry lists but untyped raw lists"
+  , Option "" ["failfuncs"]
+           (ReqArg (\s opts -> opts { optFailFuncs = s }) "<f>")
+           "use fail-sensitive functional transformation\nand read failing functions from file"
   ]
  where
   safeReadNat opttrans s opts = case readNat s of
