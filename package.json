@@ -1,12 +1,12 @@
 {
     "name": "prolog2curry",
-    "version": "1.2.0",
+    "version": "2.0.0",
     "author": "Michael Hanus <mh@informatik.uni-kiel.de>",
     "synopsis": "A tool to transform Prolog programs to Curry programs",
     "category": [ "Metaprogramming" ],
     "dependencies": {
         "base"          :   ">= 3.2.0, < 4.0.0",
-        "abstract-curry":   ">= 3.0.0, < 4.0.0",
+        "abstract-curry":   ">= 4.0.0",
         "directory"     :   ">= 3.0.0, < 4.0.0",
         "filepath"      :   ">= 3.0.0, < 4.0.0",
         "process"       :   ">= 3.0.0, < 4.0.0",
