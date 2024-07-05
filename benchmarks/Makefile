@@ -3,6 +3,7 @@
 # The binaries of the various systems:
 SWI=swipl
 SICS=/opt/sicstus/bin/sicstus
+CIAO=$(HOME)/.ciaoroot/v1.21.0-m2/build/bin/ciaoc
 PAKCS=pakcs3
 KICS2=/opt/kics2/kics3/bin/kics2
 CURRY2GO=curry2go
@@ -11,6 +12,7 @@ GHC=ghc
 PLNAMES    = rev takint takpeano ackermann
 SWIEXEC    = $(foreach prog, $(PLNAMES), $(addsuffix _swi, $(prog)))
 SICSEXEC   = $(foreach prog, $(PLNAMES), $(addsuffix _sics, $(prog)))
+CIAOEXEC   = $(foreach prog, $(PLNAMES), $(addsuffix _ciao, $(prog)))
 
 CURRYNAMES = Rev Takint Takpeano Ackermann
 CURRYFILES = $(foreach prog, $(CURRYNAMES), $(addsuffix .curry, $(prog)))
@@ -24,6 +26,7 @@ GHCO       = $(foreach prog, $(CURRYNAMES), $(addsuffix .o,     $(prog)))
 
 BENCHSWI   = $(foreach prog, $(SWIEXEC),   $(addprefix bench_, $(prog)))
 BENCHSICS  = $(foreach prog, $(SICSEXEC),  $(addprefix bench_, $(prog)))
+BENCHCIAO  = $(foreach prog, $(CIAOEXEC),  $(addprefix bench_, $(prog)))
 BENCHPAKCS = $(foreach prog, $(PAKCSEXEC), $(addprefix bench_, $(prog)))
 BENCHKICS2 = $(foreach prog, $(KICS2EXEC), $(addprefix bench_, $(prog)))
 BENCHC2G   = $(foreach prog, $(C2GEXEC),   $(addprefix bench_, $(prog)))
@@ -32,6 +35,7 @@ BENCHGHC   = $(foreach prog, $(GHCEXEC),   $(addprefix bench_, $(prog)))
 all:
 	$(MAKE) $(SWIEXEC)
 	$(MAKE) $(SICSEXEC)
+	$(MAKE) $(CIAOEXEC)
 	$(MAKE) $(PAKCSEXEC)
 	$(MAKE) $(KICS2EXEC)
 	$(MAKE) $(GHCEXEC)
@@ -47,6 +51,12 @@ benchswi:
 benchsics:
 	$(MAKE) $(SICSEXEC)
 	$(MAKE) $(BENCHSICS)
+
+# Running all Prolog benchmarks with CIAO-Prolog:
+.PHONY: benchciao
+benchciao:
+	$(MAKE) $(CIAOEXEC)
+	$(MAKE) $(BENCHCIAO)
 
 # Running all Curry benchmarks with PAKCS:
 .PHONY: benchpakcs
@@ -91,6 +101,15 @@ bench_%: %
 	mv $@.sav $@
 	chmod 755 $@
 
+%_ciao: %.pl
+	@echo Generating $@ from $<
+	cp -p $< $<.sav
+	echo "main :- main(R), write(R), nl." >> $<
+	$(CIAO) $<
+	mv $* $@
+	mv $<.sav $<
+	rm -f $*.itf $*.po
+
 %_pakcs: %.curry
 	@echo Generating $@ from $<
 	$(PAKCS) --nocypm :l $* :save :q
@@ -128,7 +147,7 @@ Ackermann.curry: ackermann.pl
 
 .PHONY: clean
 clean:
-	rm -f $(SWIEXEC) $(SICSEXEC) $(PAKCSEXEC) $(KICS2EXEC) $(C2GEXEC)
+	rm -f $(SWIEXEC) $(SICSEXEC) $(CIAOEXEC) $(PAKCSEXEC) $(KICS2EXEC) $(C2GEXEC)
 	rm -f $(CURRYFILES) $(HSFILES) $(GHCEXEC) $(GHCHI) $(GHCO)
 	rm -rf .curry
 

@@ -121,7 +121,7 @@ by adding the following directives at the beginning of the Prolog program:
 Fail-sensitive transformation:
 ------------------------------
 
-Due to the fact the Prolog programs are transformed (in the default case)
+Due to the fact that Prolog programs are transformed (in the default case)
 into nested functions which are lazily evaluated in Curry,
 it might be the case that the Curry program computes more answers
 than the original Prolog program.
