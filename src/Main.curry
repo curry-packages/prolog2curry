@@ -77,7 +77,8 @@ transformProgram ts pname = do
   unless (null outfile) $ do
     writeFile outfile $
       (if optNoWarn ts then noWarnings else missSigOpt) ++ ucprog
-    putStrLn $ "Generated Curry module written into '" ++ outfile ++ "'"
+    when (optVerb ts > 0) $ putStrLn $
+      "Generated Curry module written into '" ++ outfile ++ "'"
   when (optLoad ts && null (optOutput ts)) $ do
     let cmd = installDir </> "bin" </> "pakcs --nocypm :load " ++ modName ts2
     when (optVerb ts > 1) $ putStrLn $ "Executing: " ++ cmd
