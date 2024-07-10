@@ -150,7 +150,11 @@ the option `--storefunc` (see Curry package `verify-non-fail`).
 The shell script `scripts/pl2curry-failsensitive.sh`
 can be used to apply the fail-sensitive transformation with these tools.
 
-More details about this fail-sensitive transformation can be found in:
+A [Docker](https://hub.docker.com/) image with this script and
+installed versions of all required tools is available as
+[currylang/prolog2curry](https://hub.docker.com/r/currylang/prolog2curry).
+
+More details about the fail-sensitive transformation can be found in:
 
 M. Hanus: Improving Logic Programs by Adding Functions,
 Proc. of the  34th International Symposium on Logic-based Program Synthesis

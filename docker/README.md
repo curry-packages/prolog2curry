@@ -61,3 +61,12 @@ The informational output can be suppressed with option `-q`:
 More details from the translation tools can be shown with option `-v3`:
 
     > docker run -i --rm currylang/prolog2curry -v3 < PROLOGFILE
+
+
+Details about the transformation implemented by this docker image
+can be found in:
+
+M. Hanus: Improving Logic Programs by Adding Functions,
+Proc. of the  34th International Symposium on Logic-based Program Synthesis
+and Transformation (LOPSTR 2024),
+to appear in Springer LNCS, 2024

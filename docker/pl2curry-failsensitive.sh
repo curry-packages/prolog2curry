@@ -5,11 +5,11 @@
 showhelp () {
   echo "Usage:"
   echo ""
-  echo "    docker run -i --rm prolog2curry [OPTIONS] < PROLOGFILE"
+  echo "    docker run -i --rm currylang/prolog2curry [OPTIONS] < PROLOGFILE"
   echo ""
   echo "or"
   echo ""
-  echo "    cat PROLOGFILE | docker run -i --rm prolog2curry [OPTIONS]"
+  echo "    cat PROLOGFILE | docker run -i --rm currylang/prolog2curry [OPTIONS]"
   echo ""
   echo "with options:"
   echo ""
@@ -28,7 +28,7 @@ for arg do
     --quiet | -q         ) VERBOSE=-q   ;;
     -v | -v1 | -v2 | -v3 ) VERBOSE=$arg ;;
     --help  | -h | -\?   ) HELP=yes     ;;
-    *                    ) echo "Illegal argument: $arg" ;;
+    *                    ) echo "Illegal argument: $arg" ; exit 1 ;;
   esac
   shift
 done
