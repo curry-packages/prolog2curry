@@ -1,6 +1,6 @@
 # Makefile for generating and executing benchmarks
 
-# The binaries of the various systems:
+# The binaries of the various systems (adapt this to the local installations):
 SWI=/usr/bin/swipl
 SICS=/opt/sicstus/bin/sicstus
 PAKCS=/opt/pakcs/bin/pakcs
@@ -58,8 +58,8 @@ benchkics2:
 bench_%: %
 	@echo "RUNNING BENCHMARK: $*"
 	@time -p ./$*
-	#@time -p ./$*
-	#@time -p ./$*
+	@time -p ./$*
+	@time -p ./$*
 
 %_swi: %.pl
 	@echo Generating $@ from $<
