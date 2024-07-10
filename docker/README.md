@@ -52,15 +52,15 @@ In order to translate a pure Prolog program to Curry,
 the docker image is simply invoked with passing the Prolog program
 on stdin, e.g.,
 
-    > docker run -i --rm currylang/prolog2curry < PROLOGFILE
+    > cat PROLOGFILE | docker run -i --rm currylang/prolog2curry
 
 The informational output can be suppressed with option `-q`:
 
-    > docker run -i --rm currylang/prolog2curry -q < PROLOGFILE
+    > cat PROLOGFILE | docker run -i --rm currylang/prolog2curry -q
 
 More details from the translation tools can be shown with option `-v3`:
 
-    > docker run -i --rm currylang/prolog2curry -v3 < PROLOGFILE
+    > cat PROLOGFILE | docker run -i --rm currylang/prolog2curry -v3
 
 
 Details about the transformation implemented by this docker image
