@@ -2,6 +2,55 @@
 # shell script to translate a Prolog program with the
 # fail-sensitive functional transformation
 
+showhelp () {
+  echo "Usage:"
+  echo ""
+  echo "    pl2curry-failsensitive [OPTIONS] PROLOGFILE"
+  echo ""
+  echo "with options:"
+  echo ""
+  echo "-h|--help|-? : show this message and quit"
+  echo "-q|--quiet   : quiet mode, show only generated Curry program"
+  echo "-v1          : show status messages (default)"
+  echo "-v2          : show intermediate results (same as -v)"
+  echo "-v3          : show more details"
+  exit
+}
+
+HELP=no
+VERBOSE=
+for arg do
+  case $arg in
+    --quiet | -q         ) VERBOSE=-q   ;;
+    -v | -v1 | -v2 | -v3 ) VERBOSE=$arg ;;
+    --help  | -h | -\?   ) HELP=yes     ;;
+    -*                   ) echo "Illegal argument: $arg" ; exit 1 ;;
+    *                    ) set -- "$@" "$arg" ;;
+  esac
+  shift
+done
+
+if [ $# -eq 0 ] ; then
+  echo "Name of Prolog file missing!"
+  echo "(use --help for details)"
+  exit 1
+fi
+
+if [ $# -gt 1 ] ; then
+  echo "Too many file arguments!"
+  exit 1
+fi
+
+if [ $HELP = yes ] ; then
+  showhelp
+fi
+
+echoNQ () {
+  if [ "$VERBOSE" != "-q" ] ; then
+    echo $1
+  fi
+}
+
 PMOD=`basename $1 .pl`
 CMOD=${PMOD^}
 
@@ -23,13 +72,13 @@ fi
 
 set -e
 
-echo ">>> Translate '$PMOD' with demand functional transformation:"
-$PLCURRY $PMOD
+echoNQ ">>> Translate '$PMOD' with demand functional transformation:"
+$PLCURRY $VERBOSE $PMOD
 
-echo ">>> Analyze possible failing operations:"
-$CURRYCALLTYPES --storefuncs --nosmt $CMOD
+echoNQ ">>> Analyze possible failing operations:"
+$CURRYCALLTYPES $VERBOSE --nosmt --storefuncs $CMOD
 
-echo ">>> Translate '$PMOD' with fail-sensitive functional transformation:"
-$PLCURRY --failfuncs=$CMOD.FAIL $PMOD
+echoNQ ">>> Translate '$PMOD' with fail-sensitive functional transformation:"
+$PLCURRY $VERBOSE --failfuncs=$CMOD.FAIL $PMOD
 
 /bin/rm -f $CMOD.FAIL $CMOD.NONFAIL

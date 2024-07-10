@@ -27,7 +27,7 @@ for arg do
   case $arg in
     --quiet | -q         ) VERBOSE=-q   ;;
     -v | -v1 | -v2 | -v3 ) VERBOSE=$arg ;;
-    --help  | -h | -?    ) HELP=yes     ;;
+    --help  | -h | -\?   ) HELP=yes     ;;
     *                    ) echo "Illegal argument: $arg" ;;
   esac
   shift
