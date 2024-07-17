@@ -8,7 +8,12 @@ functional logic languages compared to purely logic languages.
 Thus, the tool translates only pure logic programs (without side
 effecting predicates etc).
 The initial ideas of this tool are described in detail in a
-[paper presented at ICLP 2022 and published in TPLP](http://doi.org/10.1017/S1471068422000187).
+paper presented at ICLP 2022 and published in TPLP:
+
+> M. Hanus: From Logic to Functional Logic Programs,
+> Theory and Practice of Logic Programming 22(4), pp. 538-554,
+> DOI: [10.1017/S1471068422000187](http://doi.org/10.1017/S1471068422000187).
+
 
 Tool options
 ------------
@@ -124,6 +129,7 @@ by adding the following directives at the beginning of the Prolog program:
     :- op(1150,fx,type).
     type(_).
 
+
 Fail-sensitive transformation:
 ------------------------------
 
@@ -156,10 +162,10 @@ installed versions of all required tools is available as
 
 More details about the fail-sensitive transformation can be found in:
 
-M. Hanus: Improving Logic Programs by Adding Functions,
-Proc. of the  34th International Symposium on Logic-based Program Synthesis
-and Transformation (LOPSTR 2024),
-to appear in Springer LNCS, 2024
+> M. Hanus: Improving Logic Programs by Adding Functions,
+> Proc. of the  34th International Symposium on Logic-based Program Synthesis
+> and Transformation (LOPSTR 2024),
+> to appear in Springer LNCS, 2024
 
 Examples for this transformation and benchmarks can be found
 in the directory `benchmarks/LOPSTR2024`.
