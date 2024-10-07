@@ -62,11 +62,12 @@ More details from the translation tools can be shown with option `-v3`:
 
     > cat PROLOGFILE | docker run -i --rm currylang/prolog2curry -v3
 
-
+The transformation is performed in several steps where the failure
+behavior of the Prolog programs is analyzed and taken into account
+to ensure a semantically correct program transformation.
 Details about the transformation implemented by this docker image
 can be found in:
 
-M. Hanus: Improving Logic Programs by Adding Functions,
+M. Hanus: [Improving Logic Programs by Adding Functions](http://dx.doi.org/10.1007/978-3-031-71294-4_2),
 Proc. of the  34th International Symposium on Logic-based Program Synthesis
-and Transformation (LOPSTR 2024),
-to appear in Springer LNCS, 2024
+and Transformation (LOPSTR 2024), Springer LNCS 14919, pp. 27-44, 2024
