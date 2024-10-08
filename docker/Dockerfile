@@ -57,7 +57,7 @@ RUN chmod -R go+rX /kics2/cpm/app_packages
 
 # Maybe install Z3?
 
-# Initialize the calltype verification by analyzing the prelude:
+# Initialize nonfailure verification tool by analyzing the prelude:
 RUN /kics2/cpm/bin/curry-calltypes Prelude
 
 # copy script to transform Prolog programs:

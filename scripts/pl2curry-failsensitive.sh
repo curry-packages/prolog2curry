@@ -30,6 +30,10 @@ for arg do
   shift
 done
 
+if [ $HELP = yes ] ; then
+  showhelp
+fi
+
 if [ $# -eq 0 ] ; then
   echo "Name of Prolog file missing!"
   echo "(use --help for details)"
@@ -39,10 +43,6 @@ fi
 if [ $# -gt 1 ] ; then
   echo "Too many file arguments!"
   exit 1
-fi
-
-if [ $HELP = yes ] ; then
-  showhelp
 fi
 
 echoNQ () {
