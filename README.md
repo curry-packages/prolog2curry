@@ -11,8 +11,8 @@ The initial ideas of this tool are described in detail in a
 paper presented at ICLP 2022 and published in TPLP:
 
 > M. Hanus: From Logic to Functional Logic Programs,
-> Theory and Practice of Logic Programming 22(4), pp. 538-554,
-> DOI: [10.1017/S1471068422000187](http://doi.org/10.1017/S1471068422000187).
+> Theory and Practice of Logic Programming 22(4), pp. 538-554.
+> DOI: [10.1017/S1471068422000187](http://doi.org/10.1017/S1471068422000187)
 
 
 Tool options
@@ -164,8 +164,8 @@ More details about the fail-sensitive transformation can be found in:
 
 > M. Hanus: Improving Logic Programs by Adding Functions,
 > Proc. of the  34th International Symposium on Logic-based Program Synthesis
-> and Transformation (LOPSTR 2024),
-> to appear in Springer LNCS, 2024
+> and Transformation (LOPSTR 2024), Springer LNCS 14919, pp. 27-44, 2024.
+> DOI: [10.1007/978-3-031-71294-4\_2](http://dx.doi.org/10.1007/978-3-031-71294-4\_2)
 
 Examples for this transformation and benchmarks can be found
 in the directory `benchmarks/LOPSTR2024`.
@@ -198,3 +198,15 @@ Technical remarks:
   position is added to indicate that the order of arguments
   has been changed in the transformed function.
   See `examples/demand.pl` for such examples.
+
+------------------------------------------------------------------------------
+
+Web Demo Installation
+---------------------
+
+If you want to try this tool on simple programs via a web interface,
+you can use a
+[Web Demo Installation](https://cpm.curry-lang.org/webapps/pl2curry/)
+of this tool.
+
+------------------------------------------------------------------------------
