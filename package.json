@@ -12,7 +12,6 @@
         "process"       :   ">= 3.0.0, < 4.0.0",
         "prolog"        :   ">= 3.0.0, < 4.0.0"
     },
-    "exportedModules": [ "Language.Prolog.Read" ],
     "license": "BSD-3-Clause",
     "licenseFile": "LICENSE",
     "executable": {
