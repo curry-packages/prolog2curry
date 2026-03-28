@@ -2,7 +2,7 @@
 --- Main module to invoke the transformation tool.
 ---
 --- @author Michael Hanus
---- @version February 2026
+--- @version March 2026
 ------------------------------------------------------------------------------
 
 module Main
@@ -28,7 +28,7 @@ import Language.Prolog.ToCurry
 toolBanner :: String
 toolBanner = unlines [bannerLine, bannerText, bannerLine]
  where
-  bannerText = "Prolog->Curry transformation tool (Version of 23/02/26)"
+  bannerText = "Prolog->Curry transformation tool (Version of 02/03/26)"
   bannerLine = take (length bannerText) (repeat '=')
 
 main :: IO ()

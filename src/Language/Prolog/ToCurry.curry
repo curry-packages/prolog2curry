@@ -3,7 +3,7 @@
 --- into Curry programs.
 ---
 --- @author Michael Hanus
---- @version May 2024
+--- @version March 2026
 ------------------------------------------------------------------------------
 
 module Language.Prolog.ToCurry
@@ -84,13 +84,14 @@ data TransState = TransState
   , prologCons    :: [(String,Int)]      -- structure name / arity
   , indseqArgs    :: [(PredSpec,[[Int]])]-- min. sets. of ind. seq. arg. posns.
   , resultArgs    :: [(PredSpec,[Int])]  -- result argument positions
+  , currentClause :: PlClause            -- current clause to be translated
   }
 
 --- Returns an initial transformation state for a given module name.
 initState :: String -> TransState
 initState mname =
   TransState mname 1 False "" False False True True False True True True "" []
-             [] [] [] [] initResultArgs
+             [] [] [] [] initResultArgs (PlClause "" []  [])
  where
   initResultArgs = [(("is",2),[1])]
 
@@ -454,8 +455,10 @@ transPredClauses ts ((pn,ar), clauses) =
 -- Translate a Prolog clause into a Curry rule.
 transClause :: TransState -> PredSpec -> Clause -> CRule
 transClause ts (pn,ar) (args, goals)
-  | withFunctions ts = trClauseFunctional   ts (pn,ar) args goals
-  | otherwise        = trClauseConservative ts args goals
+  | withFunctions ts = trClauseFunctional   ts1 (pn,ar) args goals
+  | otherwise        = trClauseConservative ts1 args goals
+ where
+  ts1 = ts { currentClause = PlClause pn args goals }
 
 -- Translate a Prolog clause into a Curry rule with the functional
 -- transformation, i.e., consider the information about result positions.
@@ -596,11 +599,13 @@ transGoals ts lvars goals rhs =
 -- in order to avoid creating new bindings for them.
 transGoal :: TransState -> [String] -> PlGoal
           -> ([PlTerm], [([PlTerm], PlTerm)])
-transGoal _ _ goal@(PlNeg _) =
-  error $ "Cannot translate negation: " ++ showPlGoal goal
-transGoal _ _ goal@(PlCond _ _ _) =
-  error $ "Cannot translate non-top-level conditional: " ++ showPlGoal goal
-transGoal ts lvars (PlLit pn pargs)
+transGoal ts _ goal@(PlNeg _) =
+  noTransError ts $ "negation: " ++ showPlGoal goal
+transGoal ts _ goal@(PlCond _ _ _) =
+  noTransError ts $ "non-top-level conditional: " ++ showPlGoal goal
+transGoal ts lvars goal@(PlLit pn pargs)
+  | (pn, length pargs) `elem` impurePredicates
+  = noTransError ts $ "impure predicate '" ++ showPlGoal goal ++ "'"
   | withFunctions ts && withDemand ts && isUnif && isPlVar (head pargs) &&
     null (intersect lvars (termVars (head pargs)))
   -- handle X=t literals as binding X/t:
@@ -620,6 +625,18 @@ transGoal ts lvars (PlLit pn pargs)
 
   toUnif p = if p == "=" then "=:=" else p
   isUnif = pn == "=" && length pargs == 2
+
+noTransError :: TransState -> String -> _
+noTransError ts s = error $ "Cannot translate " ++ s ++ "\nClause:\n" ++
+  showPlClause (currentClause ts)
+
+-- Some impure Prolog predicates which cannot be translated:
+impurePredicates :: [(String,Int)]
+impurePredicates =
+  [ ("!",0), ("=..",2)
+  , ("arg",3), ("atomic",1), ("functor",3), ("integer",1)
+  , ("nonvar",1), ("var",1)
+  ]
 
 ----------------------------------------------------------------------------
 -- Auxiliaries for the transformation.
