@@ -80,7 +80,8 @@ data TransState = TransState
 
   -- the following components are automatically set by the transformation:
   , ignoredCls    :: [PlClause]          -- ignored clauses (queries, direct.)
-  , prologPreds   :: [(PredSpec,String)] -- predicate spec and output name
+  , prologPreds   :: [(PredSpec,String)] -- specication and output name of all
+                                         -- predicates defined in the pl program
   , prologCons    :: [(String,Int)]      -- structure name / arity
   , indseqArgs    :: [(PredSpec,[[Int]])]-- min. sets. of ind. seq. arg. posns.
   , resultArgs    :: [(PredSpec,[Int])]  -- result argument positions
@@ -99,12 +100,13 @@ initState mname =
 setModName :: String -> TransState -> TransState
 setModName pl ts = ts { modName = upperFirst pl }
 
+-- Update the output name of a predicate specification in
+-- a transformation state.
 updatePredName :: PredSpec -> String -> TransState -> TransState
-updatePredName pnar newpn ts = ts { prologPreds = updName (prologPreds ts) }
+updatePredName pnar newpn ts = ts { prologPreds = map updName (prologPreds ts) }
  where
-  updName [] = []
-  updName ((pa,n) : pas) | pa == pnar = (pa,newpn) : updName pas
-                         | otherwise  = (pa,n)     : updName pas
+  updName (pa,n) | pa == pnar = (pa,newpn)
+                 | otherwise  = (pa,n)
 
 -- Looks up the inductively sequential argument positions for a predicate
 -- in a transformation state.
@@ -180,7 +182,7 @@ analyzeFunctions ((pnar@(pn,ar),pcls) : predclauses) ts =
              ts1    = if null ps
                         then ts
                         else ts { resultArgs = fspecs ++ [(pnar,ps)] }
-             ts2    = case ps of -- change predicate name of result is not last
+             ts2    = case ps of -- change predicate name if result is not last
                         [p] | p/=ar -> updatePredName pnar (pn ++ '_' : show p)
                                                       ts1
                         _           -> ts1
@@ -604,8 +606,10 @@ transGoal ts _ goal@(PlNeg _) =
 transGoal ts _ goal@(PlCond _ _ _) =
   noTransError ts $ "non-top-level conditional: " ++ showPlGoal goal
 transGoal ts lvars goal@(PlLit pn pargs)
-  | (pn, length pargs) `elem` impurePredicates
+  | (pn,par) `elem` impurePredicates
   = noTransError ts $ "impure predicate '" ++ showPlGoal goal ++ "'"
+  | (pn,par) `notElem` (map fst (prologPreds ts) ++ predefinedPredicates)
+  = noTransError ts $ "undefined predicate '" ++ showPlGoal goal ++ "'"
   | withFunctions ts && withDemand ts && isUnif && isPlVar (head pargs) &&
     null (intersect lvars (termVars (head pargs)))
   -- handle X=t literals as binding X/t:
@@ -620,15 +624,21 @@ transGoal ts lvars goal@(PlLit pn pargs)
   | otherwise
   = ([PlStruct (toUnif pn) pargs], [])
  where
-  (res,args) = partitionPredArguments (resultPos ts (pn, length pargs)) pargs
+  par        = length pargs
+  (res,args) = partitionPredArguments (resultPos ts (pn, par)) pargs
   call       = PlStruct pn args
 
   toUnif p = if p == "=" then "=:=" else p
-  isUnif = pn == "=" && length pargs == 2
+  isUnif = pn == "=" && par == 2
 
 noTransError :: TransState -> String -> _
 noTransError ts s = error $ "Cannot translate " ++ s ++ "\nClause:\n" ++
   showPlClause (currentClause ts)
+
+-- Predefined Prolog predicates handled by the translator:
+predefinedPredicates :: [(String,Int)]
+predefinedPredicates =
+  map (\p -> (p,2)) (["is"] ++ simpleCmpPreds)
 
 -- Some impure Prolog predicates which cannot be translated:
 impurePredicates :: [(String,Int)]
