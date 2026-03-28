@@ -35,7 +35,7 @@ Log into the Docker Hub from command line, tag and push the local image:
     > docker tag prolog2curry currylang/prolog2curry:<version>
     > docker push currylang/prolog2curry:<version>
 
-where <version> should be something like "1.2.0"
+where <version> should be something like "1.3.0"
 or "latest" to update the latest version.
 
 
@@ -43,7 +43,7 @@ Description of the Docker image:
 --------------------------------
 
 This repository contains a translator which transforms
-pure Prolog programs into [Curry](http://curry-lang.org) programs.
+pure Prolog programs into [Curry](https://curry-lang.org) programs.
 
 
 How to use the docker image:
@@ -68,6 +68,6 @@ to ensure a semantically correct program transformation.
 Details about the transformation implemented by this docker image
 can be found in:
 
-M. Hanus: [Improving Logic Programs by Adding Functions](http://dx.doi.org/10.1007/978-3-031-71294-4_2),
+M. Hanus: [Improving Logic Programs by Adding Functions](https://dx.doi.org/10.1007/978-3-031-71294-4_2),
 Proc. of the  34th International Symposium on Logic-based Program Synthesis
 and Transformation (LOPSTR 2024), Springer LNCS 14919, pp. 27-44, 2024
