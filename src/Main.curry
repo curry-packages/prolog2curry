@@ -2,7 +2,7 @@
 --- Main module to invoke the transformation tool.
 ---
 --- @author Michael Hanus
---- @version March 2026
+--- @version April 2026
 ------------------------------------------------------------------------------
 
 module Main
@@ -14,6 +14,7 @@ import Data.List                   ( isSuffixOf )
 import Numeric                     ( readNat )
 import System.Console.GetOpt
 import System.Environment          ( getArgs )
+import System.CPUTime              ( getCPUTime )
 
 import System.Directory            ( doesFileExist )
 import System.FilePath             ( (</>), dropExtension )
@@ -28,7 +29,7 @@ import Language.Prolog.ToCurry
 toolBanner :: String
 toolBanner = unlines [bannerLine, bannerText, bannerLine]
  where
-  bannerText = "Prolog->Curry transformation tool (Version of 28/03/26)"
+  bannerText = "Prolog->Curry transformation tool (Version of 09/04/26)"
   bannerLine = take (length bannerText) (repeat '=')
 
 main :: IO ()
@@ -53,15 +54,22 @@ transformProgram ts pname = do
              unless exff $ error $ "File '" ++ fffile ++ "' does not exist"
              ffs <- fmap (concatMap readQNameLine . lines) (readFile fffile)
              return (ts { failFuncs = ffs })
-  pp <- readPrologFile (progname ++ ".pl")
+  pp <- readPrologFile (progname ++ ".pl") >>=
+          (if optTime ts then (return $!!) else return)
   when (optVerb ts > 2) $ putStrLn $ encloseInLines $
     "Prolog program '" ++ pname ++ "':\n\n" ++ showPlProg pp
+  transstart <- getCPUTime
   let (cprog,ts2) = prolog2Curry (setModName progname ts1) pp
       ucprog   = unlines (filter (not . (":: ()" `isSuffixOf`))
                                  (lines (showCProg cprog)))
       outfile  = case optOutput ts of "-" -> ""
                                       ""  -> modName ts2 ++ ".curry"
                                       f   -> f
+  when (optTime ts) $ do
+    return $!! cprog -- evaluate transformed program to normal form
+    transstop <- getCPUTime
+    putStrLn $
+      "TRANSFORMATION TIME: " ++ show (transstop-transstart) ++ " msecs"
   when (optVerb ts > 0 && not (null (ignoredCls ts2))) $ putStrLn $
     "The following queries/directives/clauses are ignored:\n" ++
     unlines (map showPlClause (ignoredCls ts2))
@@ -136,6 +144,9 @@ options =
   , Option "w" ["nowarn"]
            (NoArg (\opts -> opts { optNoWarn = True }))
            "turn off all warnings for generated Curry program"
+  , Option "t" ["time"]
+           (NoArg (\opts -> opts { optTime = True }))
+           "show transformation time"
   , Option "c" ["conservative"]
            (NoArg (\opts -> opts { withFunctions = False }))
            "conservative transformation into predicates"

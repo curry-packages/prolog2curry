@@ -14,16 +14,19 @@ showhelp () {
   echo "-v1          : show status messages (default)"
   echo "-v2          : show intermediate results (same as -v)"
   echo "-v3          : show more details"
+  echo "-t|--time    : show transformation time"
   exit
 }
 
 HELP=no
 VERBOSE=
+TIME=
 for arg do
   case $arg in
     --quiet | -q         ) VERBOSE=-q   ;;
     -v | -v1 | -v2 | -v3 ) VERBOSE=$arg ;;
     --help  | -h | -\?   ) HELP=yes     ;;
+    --time  | -t         ) TIME=--time  ;;
     -*                   ) echo "Illegal argument: $arg" ; exit 1 ;;
     *                    ) set -- "$@" "$arg" ;;
   esac
@@ -73,12 +76,12 @@ fi
 set -e
 
 echoNQ ">>> Translate '$PMOD' with demand functional transformation:"
-$PLCURRY $VERBOSE $PMOD
+$PLCURRY $VERBOSE $TIME $PMOD
 
 echoNQ ">>> Analyze possible failing operations:"
-$CURRYCALLTYPES $VERBOSE --nosmt --storefuncs $CMOD
+$CURRYCALLTYPES $VERBOSE $TIME --nosmt --storefuncs $CMOD
 
 echoNQ ">>> Translate '$PMOD' with fail-sensitive functional transformation:"
-$PLCURRY $VERBOSE --failfuncs=$CMOD.FAIL $PMOD
+$PLCURRY $VERBOSE $TIME --failfuncs=$CMOD.FAIL $PMOD
 
 /bin/rm -f $CMOD.FAIL $CMOD.NONFAIL

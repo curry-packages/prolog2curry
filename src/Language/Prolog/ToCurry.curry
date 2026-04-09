@@ -65,6 +65,7 @@ data TransState = TransState
   , optOutput     :: String   -- name of output file (or "-")
   , optLoad       :: Bool     -- load the generated Curry module
   , optNoWarn     :: Bool     -- turn off warnings for generated Curry module
+  , optTime       :: Bool     -- show transformation time
   , withFunctions :: Bool     -- use function information (otherwise,
                               -- use conservative transformation)
   , withDemand    :: Bool     -- transform to exploit demand/lazy
@@ -91,8 +92,8 @@ data TransState = TransState
 --- Returns an initial transformation state for a given module name.
 initState :: String -> TransState
 initState mname =
-  TransState mname 1 False "" False False True True False True True True "" []
-             [] [] [] [] initResultArgs (PlClause "" []  [])
+  TransState mname 1 False "" False False False True True False True True True
+             "" [] [] [] [] [] initResultArgs (PlClause "" []  [])
  where
   initResultArgs = [(("is",2),[1])]
 
