@@ -29,7 +29,7 @@ import Language.Prolog.ToCurry
 toolBanner :: String
 toolBanner = unlines [bannerLine, bannerText, bannerLine]
  where
-  bannerText = "Prolog->Curry transformation tool (Version of 09/04/26)"
+  bannerText = "Prolog->Curry transformation tool (Version of 13/04/26)"
   bannerLine = take (length bannerText) (repeat '=')
 
 main :: IO ()
@@ -88,7 +88,7 @@ transformProgram ts pname = do
     when (optVerb ts > 0) $ putStrLn $
       "Generated Curry module written into '" ++ outfile ++ "'"
   when (optLoad ts && null (optOutput ts)) $ do
-    let cmd = installDir </> "bin" </> "pakcs --nocypm :load " ++ modName ts2
+    let cmd = installDir </> "bin" </> "curry --nocypm :load " ++ modName ts2
     when (optVerb ts > 1) $ putStrLn $ "Executing: " ++ cmd
     ec <- system cmd
     exitWith ec

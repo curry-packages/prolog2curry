@@ -164,7 +164,7 @@ prolog2Curry ts cls =
   patsrhsconstrs (pats,goals) =
     union (unionMap termConstrs pats) (unionMap goalConstrs goals)
 
-  stdConstrs = map (\o -> (o,2)) ["+","-","*","/"] ++
+  stdConstrs = map (\o -> (o,2)) ["+","-","*","/","mod","rem","div","**","^"] ++
                map (\o -> (o,0)) ["true", "false"]
 
 ----------------------------------------------------------------------------
@@ -731,7 +731,7 @@ transName ts s
   | s == "."  = if useLists ts then pre ":" else (mn, "CONS")
   | s == "[]" = if useLists ts then pre s   else (mn, "NIL")
   --| s == "="  = pre "=:="
-  | s `elem` ["True", "False", "&&"] = pre s
+  | s `elem` ["True", "False", "&&", "mod", "rem", "div"] = pre s
   | s `elem` map fst stdNames
   = maybe (error "Internal error transName") pre (lookup s stdNames)
   | otherwise
@@ -743,8 +743,9 @@ transName ts s
 
 stdNames :: [(String,String)]
 stdNames =
-  [ ("=" , "==")
+  [ ("=", "==")
   , ("\\=", "/=")
+  , ("=\\=", "/=")
   , ("=<", "<=")
   , (">=", ">=")
   , ("<" , "<" )
@@ -753,7 +754,7 @@ stdNames =
 
 -- Simple comparison predicates
 simpleCmpPreds :: [String]
-simpleCmpPreds = ["=","\\=","<",">","=<",">="]
+simpleCmpPreds = ["=","\\=","=:=","=\\=","<",">","=<",">="]
 
 -- if-then-else expression
 cITE :: CExpr -> CExpr -> CExpr -> CExpr
