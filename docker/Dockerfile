@@ -1,4 +1,4 @@
-FROM ubuntu:24.04
+FROM ubuntu:25.04
 
 # avoid interactive input for 'configuring tzdata'
 ENV DEBIAN_FRONTEND=noninteractive
@@ -26,10 +26,10 @@ ENV LANG C.UTF-8
 # copy, unpack and install kics2
 WORKDIR /kics2
 RUN stack upgrade
-RUN curl -sSL -o kics2.tar.gz https://www-ps.informatik.uni-kiel.de/kics2/download/kics2-3.3.0-x86_64-linux-debian11.tar.gz
+RUN curl -sSL -o kics2.tar.gz https://www.curry-lang.org/kics2/download/kics2-3.5.0-x86_64-linux.tar.gz
 RUN tar xvzf kics2.tar.gz
 RUN rm kics2.tar.gz
-RUN mv kics2-3.3.0-x86_64-linux kics2
+RUN mv kics2-3.5.0-x86_64-linux kics2
 WORKDIR /kics2/kics2
 ENV PATH /kics2/kics2/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
