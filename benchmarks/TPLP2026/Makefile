@@ -7,7 +7,7 @@ PAKCS=/opt/pakcs/bin/pakcs
 KICS2=/opt/kics2/bin/kics2
 KMCC=$(HOME)/kmcc/bin/kmcc
 
-PROGNAMES  = Rev Takpeano Takint Ackermann Primes Quicksort Permsort Queens Sendmore Zebra Thirdof Signat Numleaves Sublist Pali ExprSyntax
+PROGNAMES  = Rev Takpeano Takint Ackermann Primes Quicksort Permsort Queens Sendmore Zebra Thirdof Signat Numnodes Sublist Pali ExprSyntax
 #PROGNAMES  = Takpeano_strict # only for Curry benchmark
 
 SWIEXEC    = $(foreach prog, $(PROGNAMES), $(addsuffix _swi, $(prog)))

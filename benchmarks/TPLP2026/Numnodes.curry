@@ -1,6 +1,6 @@
 {-# OPTIONS_FRONTEND -Wno-missing-signatures #-}
 
-module Numleaves where
+module Numnodes where
 
 data Nat = O | S Nat
  deriving (Eq,Show)
@@ -8,14 +8,14 @@ data Nat = O | S Nat
 data Tree a = Leaf a | Node (Tree a) (Tree a)
  deriving (Eq,Show)
 
-numleaves (Leaf _) = S O
-numleaves (Node m1 m2) = S (plus (numleaves m1) (numleaves m2))
+numnodes (Leaf _) = S O
+numnodes (Node m1 m2) = S (plus (numnodes m1) (numnodes m2))
 
 plus O n = n
 plus (S m) n = S (plus m n)
 
-numleaves_7 | S (S (S (S (S (S (S O)))))) =:= numleaves t = t
+numnodes_7 | S (S (S (S (S (S (S O)))))) =:= numnodes t = t
   where
     t free
 
-main = numleaves_7
+main = numnodes_7
